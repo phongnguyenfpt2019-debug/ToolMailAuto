@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPT Telecom | CEM &amp; Giục Tiến Độ Dashboard (Material UI)</title>
+    
+    <!-- Material Design & Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Tailwind CSS v3 via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Roboto', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+              mono: ['"Roboto Mono"', 'monospace'],
+            },
+            colors: {
+              fpt: {
+                DEFAULT: '#f26f21',
+                50: '#fff7ed',
+                100: '#ffedd5',
+                200: '#fed7aa',
+                500: '#f26f21',
+                600: '#ea580c',
+                700: '#c2410c',
+              },
+              mui: {
+                primary: '#f26f21',
+                blue: '#1976d2',
+                blueLight: '#e3f2fd',
+                blueDark: '#1565c0',
+                red: '#d32f2f',
+                redLight: '#ffebee',
+                amber: '#ed6c02',
+                amberLight: '#fff4e5',
+                green: '#2e7d32',
+                greenLight: '#edf7ed',
+                surface: '#ffffff',
+                bg: '#f8fafc',
+                border: '#e2e8f0',
+                textPrimary: '#1e293b',
+                textSecondary: '#64748b',
+              }
+            },
+            boxShadow: {
+              'mui-card': '0px 2px 4px -1px rgba(0,0,0,0.06), 0px 4px 6px -1px rgba(0,0,0,0.04)',
+              'mui-card-hover': '0px 8px 16px -2px rgba(0,0,0,0.08), 0px 4px 8px -2px rgba(0,0,0,0.04)',
+              'mui-dialog': '0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12)',
+            }
+          }
+        }
+      }
+    </script>
+
+    <!-- Chart.js 4.4.1 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Custom MUI Stylesheet -->
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased overflow-hidden h-screen w-screen flex">
+
+    <!-- ========================================================= -->
+    <!-- MUI PERMANENT DRAWER (SIDEBAR)                            -->
+    <!-- ========================================================= -->
+    <aside class="w-64 min-w-[16rem] bg-white border-r border-slate-200 flex flex-col justify-between z-20 shadow-[1px_0_3px_rgba(0,0,0,0.03)]">
+        <div>
+            <!-- Brand Bar -->
+            <div class="p-4 border-b border-slate-200 flex items-center gap-3">
+                <img src="https://management.mypt.vn/images/FPT_Telecom_logo.svg"
+                     alt="FPT Telecom"
+                     class="h-9 w-auto object-contain"
+                     onerror="this.onerror=null;this.style.display='none';document.getElementById('logo-fallback').style.display='flex'">
+                <!-- Fallback nếu SVG không load -->
+                <div id="logo-fallback" class="hidden w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/20">
+                    <i class="fa-solid fa-satellite-dish text-lg"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-black tracking-tight text-slate-900 leading-tight">FPT TELECOM</h2>
+                    <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Chi Nhánh Sài Gòn 01</span>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="p-3">
+                <div class="px-3 py-1.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                    DANH MỤC TAG
+                </div>
+                
+                <ul class="space-y-1 mt-1">
+                    <!-- TAG 1: CEM (CSAT 1, 2) -->
+                    <li>
+                        <a href="javascript:void(0)" id="nav-item-cem" onclick="switchTag('cem')"
+                           class="nav-tab-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-150 active">
+                            <div class="flex items-center gap-3">
+                                <span class="tab-icon text-base"><i class="fa-solid fa-chart-pie text-orange-500"></i></span>
+                                <span>CEM (CSAT 1, 2)</span>
+                            </div>
+                            <span id="badge-cem-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">0 ca</span>
+                        </a>
+                    </li>
+
+                    <!-- TAG 2: GIỤC TIẾN ĐỘ -->
+                    <li>
+                        <a href="javascript:void(0)" id="nav-item-giuc" onclick="switchTag('giuc')"
+                           class="nav-tab-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150">
+                            <div class="flex items-center gap-3">
+                                <span class="tab-icon text-base"><i class="fa-solid fa-bell text-red-500"></i></span>
+                                <span>Giục Tiến Độ</span>
+                            </div>
+                            <span id="badge-giuc-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-600 border border-red-200">77 ca</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="javascript:void(0)" id="nav-item-cll" onclick="switchTag('cll')"
+                           class="nav-tab-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150">
+                            <div class="flex items-center gap-3">
+                                <span class="tab-icon text-base"><i class="fa-solid fa-list-check text-violet-600"></i></span>
+                                <span>CLL &gt;3</span>
+                            </div>
+                            <span id="badge-cll-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">0 ca</span>
+                        </a>
+                    </li>
+                </ul>
+
+                {% if is_admin %}
+                <!-- ADMIN GROUP -->
+                <div class="mt-5 px-3 py-1.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase flex items-center gap-1.5">
+                    <i class="fa-solid fa-user-shield text-[10px]"></i> ADMIN
+                </div>
+                <ul class="space-y-1 mt-1">
+                    <li>
+                        <a href="javascript:void(0)" id="nav-item-admin" onclick="toggleAdminMenu()"
+                           class="flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all duration-150">
+                            <div class="flex items-center gap-3">
+                                <span class="tab-icon text-base"><i class="fa-solid fa-screwdriver-wrench text-slate-600"></i></span>
+                                <span>Admin</span>
+                            </div>
+                            <i id="admin-chevron" class="fa-solid fa-chevron-down text-[10px] text-slate-400 transition-transform"></i>
+                        </a>
+                        <ul id="admin-submenu" class="mt-1 ml-4 pl-2 border-l-2 border-slate-100 space-y-1">
+                            <!-- HR -->
+                            <li>
+                                <a href="javascript:void(0)" id="nav-item-nhansu" onclick="switchTag('nhansu')"
+                                   class="nav-tab-link flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150">
+                                    <div class="flex items-center gap-3">
+                                        <span class="tab-icon text-base"><i class="fa-solid fa-users text-teal-600"></i></span>
+                                        <span>HR</span>
+                                    </div>
+                                    <span id="badge-nhansu-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-700">0 NV</span>
+                                </a>
+                            </li>
+                            <!-- Danh sách Login -->
+                            <li>
+                                <a href="javascript:void(0)" id="nav-item-logins" onclick="switchTag('logins')"
+                                   class="nav-tab-link flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150">
+                                    <div class="flex items-center gap-3">
+                                        <span class="tab-icon text-base"><i class="fa-solid fa-key text-indigo-600"></i></span>
+                                        <span>Danh sách Login</span>
+                                    </div>
+                                    <span id="badge-logins-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">0</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                {% endif %}
+
+                <!-- Mail Connection & Automation Box -->
+                <div class="mt-6 px-3 py-1.5 text-[11px] font-bold tracking-wider text-slate-400 uppercase">
+                    TỰ ĐỘNG HÓA WEBMAIL
+                </div>
+
+                <div class="mt-1 bg-slate-50 rounded-xl p-3 border border-slate-200/80 space-y-2.5">
+                    <div class="flex items-center gap-2.5">
+                        <span class="relative flex h-2.5 w-2.5">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                        </span>
+                        <div class="overflow-hidden">
+                            <div class="text-xs font-bold text-slate-800">mail.fpt.net:993</div>
+                            <div class="text-[11px] text-slate-500 truncate" id="status-email" title="phuongnam.phongnh5@fpt.net">phuongnam.phongnh5@fpt.net</div>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200 flex items-center justify-between text-xs text-slate-600">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-rotate text-orange-500 text-xs"></i> Chu kỳ:
+                        </span>
+                        <span class="font-bold text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">5 phút / lần</span>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs text-slate-600">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-zipper text-blue-500 text-xs"></i> Chuẩn nén:
+                        </span>
+                        <span class="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">zstandard</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar Footer Action -->
+        <div class="p-3 border-t border-slate-200 bg-white space-y-2">
+            <div class="flex items-center gap-2.5 px-1">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 text-white flex items-center justify-center text-xs font-black shrink-0">
+                    {{ (user_name or user or '?')[:1] | upper }}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="text-xs font-bold text-slate-800 truncate">{{ user_name or user }}</div>
+                    <div class="text-[11px] text-slate-500 truncate">{% if is_admin %}Administrator{% else %}{{ user }}{% endif %}</div>
+                </div>
+                <a href="/logout" id="btn-logout" title="Đăng xuất" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+            {% if is_admin %}
+            <button onclick="openSettingsModal()" class="w-full flex items-center justify-center gap-2 py-2 px-3 border border-slate-300 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
+                <i class="fa-solid fa-gear text-slate-500"></i> Cấu Hình Mail Server
+            </button>
+            {% endif %}
+        </div>
+    </aside>
+
+    <!-- ========================================================= -->
+    <!-- MAIN CONTENT AREA (MUI APP BAR & SCROLLABLE BODY)        -->
+    <!-- ========================================================= -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#f8fafc] overflow-hidden">
+        
+        <!-- MUI Elevated App Bar -->
+        <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between sticky top-0 z-10 shadow-[0_1px_3px_rgba(0,0,0,0.05)]">
+            <div class="flex items-center gap-3">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-black tracking-wide uppercase bg-orange-100 text-orange-800 border border-orange-200">
+                    <span class="w-1.5 h-1.5 rounded-full bg-orange-600"></span>
+                    <span id="topbar-tag-name">CEM</span>
+                </span>
+                <h1 id="topbar-page-title" class="text-base font-bold text-slate-900 tracking-tight">
+                    Dashboard Tổng Hợp CEM - CSAT 1, 2 CLDV
+                </h1>
+            </div>
+
+            <!-- Topbar Actions -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                    <i class="fa-regular fa-clock text-slate-400"></i>
+                    <span>Cập nhật: <strong id="last-sync-time" class="text-slate-700 font-semibold">Đang tải...</strong></span>
+                </div>
+
+                <!-- Primary Contained Button -->
+                <button id="btn-sync" onclick="triggerManualSync()" class="inline-flex items-center gap-2 bg-[#f26f21] hover:bg-[#d95a10] active:scale-95 text-white text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg shadow-sm hover:shadow transition-all">
+                    <i class="fa-solid fa-rotate" id="sync-icon"></i>
+                    <span>Đồng Bộ Ngay</span>
+                </button>
+
+                <!-- Outlined Export Dropdown -->
+                <div class="relative export-dropdown">
+                    <button onclick="toggleExportMenu()" class="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg shadow-sm transition-all">
+                        <i class="fa-solid fa-file-export text-slate-500"></i>
+                        <span>Xuất Báo Cáo</span>
+                        <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-1"></i>
+                    </button>
+                    <div id="export-menu" class="dropdown-menu absolute right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg py-1 hidden z-50">
+                        <a href="javascript:void(0)" onclick="exportReport('excel')" class="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-orange-600 transition-colors">
+                            <i class="fa-solid fa-file-excel text-emerald-600 text-sm"></i> Xuất File Excel (.xlsx)
+                        </a>
+                        <a href="javascript:void(0)" onclick="exportReport('csv')" class="flex items-center gap-2.5 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-orange-600 transition-colors">
+                            <i class="fa-solid fa-file-csv text-blue-600 text-sm"></i> Xuất File CSV (.csv)
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Scrollable Dashboard Content -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6">
+
+            <!-- ========================================================= -->
+            <!-- VIEW 1: TAG CEM (CSAT 1, 2)                              -->
+            <!-- ========================================================= -->
+            <div id="view-cem" class="view-tab active space-y-6">
+                
+                <!-- 1. MUI Card: BỘ LỌC THỜI GIAN ĐÁNH GIÁ & PHÂN CÔNG NHÂN SỰ -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                        <span class="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+                            <i class="fa-regular fa-calendar-days"></i>
+                        </span>
+                        <span>Bộ lọc thời gian:</span>
+                    </div>
+
+                    <!-- Date range inputs -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-medium text-slate-500">Từ:</label>
+                            <input type="date" id="filter-date-from" onchange="handleDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none">
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-xs text-slate-400"></i>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-medium text-slate-500">Đến:</label>
+                            <input type="date" id="filter-date-to" onchange="handleDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- MUI Chip Presets -->
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button class="preset-btn active px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="all" onclick="setQuickDate('all')">Tất cả</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="today" onclick="setQuickDate('today')">Hôm nay</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="yesterday" onclick="setQuickDate('yesterday')">Hôm qua</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="7days" onclick="setQuickDate('7days')">7 ngày qua</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="month" onclick="setQuickDate('month')">Tháng này</button>
+                        <button class="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-all ml-1" onclick="resetDateFilter()" title="Đặt lại bộ lọc ngày">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                    <!-- Bộ lọc theo Nhân Sự (Block & Đội Trưởng) cho CEM -->
+                    <div class="flex items-center gap-2.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-2 lg:pt-0 lg:pl-3 w-full lg:w-auto">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-building text-orange-500 text-[11px]"></i> Block:</label>
+                            <select id="filter-cem-block" onchange="handleCemNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[130px]">
+                                <option value="">Tất cả Block</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-user-shield text-orange-500 text-[11px]"></i> Đội Trưởng:</label>
+                            <select id="filter-cem-doi-truong" onchange="handleCemNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[140px]">
+                                <option value="">Tất cả Đội Trưởng</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. MUI KPI Grid (CEM - Clickable Cards) -->
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- Total -->
+                    <div id="kpi-card-cem-total" onclick="filterCSAT('')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-blue-500" title="Bấm để lọc tất cả ca CSAT">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Ca CSAT 1, 2</span>
+                            <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-inbox"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-total" class="text-2xl font-black text-slate-900 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Theo thời gian &amp; bộ lọc</span>
+                        </div>
+                    </div>
+
+                    <!-- CSAT 1 -->
+                    <div id="kpi-card-cem-csat1" onclick="filterCSAT('1')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-red-500" title="Bấm để lọc ca CSAT 1">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-red-600 uppercase tracking-wider">CSAT 1 (Rất Không HL)</span>
+                            <div class="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-face-angry"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-csat1" class="text-2xl font-black text-red-600 tracking-tight">0</h3>
+                            <span id="kpi-csat1-pct" class="text-[11px] font-semibold text-red-500">0% tổng ca</span>
+                        </div>
+                    </div>
+
+                    <!-- CSAT 2 -->
+                    <div id="kpi-card-cem-csat2" onclick="filterCSAT('2')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-amber-500" title="Bấm để lọc ca CSAT 2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">CSAT 2 (Không HL)</span>
+                            <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-face-frown"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-csat2" class="text-2xl font-black text-amber-600 tracking-tight">0</h3>
+                            <span id="kpi-csat2-pct" class="text-[11px] font-semibold text-amber-600">0% tổng ca</span>
+                        </div>
+                    </div>
+
+                    <!-- NVKT -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-emerald-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">NVKT Liên Quan</span>
+                            <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-user-ninja"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-techs" class="text-2xl font-black text-slate-900 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">KTV triển khai / bảo trì</span>
+                        </div>
+                    </div>
+
+                    <!-- Home Support -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-purple-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-purple-600 uppercase tracking-wider">Hỗ Trợ Tại Nhà</span>
+                            <div class="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-house-chimney-crack"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-home" class="text-2xl font-black text-purple-600 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Cần xử lý onsite</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. MUI Card: BẢNG CHI TIẾT CEM (THÔNG TIN CƠ BẢN / THÔNG TIN ĐÁNH GIÁ) -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-table-list text-orange-500"></i>
+                                Bảng Chi Tiết Mail Khảo Sát CEM
+                            </h2>
+                            <span id="table-total-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">0 bản ghi</span>
+                        </div>
+
+                        <!-- Filter controls -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <!-- Search -->
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                                <input type="text" id="filter-search" onkeyup="handleSearch(event)" placeholder="Tìm số HĐ, KH, SĐT, NVKT..."
+                                       class="pl-8 pr-7 py-1.5 w-60 rounded-lg border border-slate-300 text-xs font-medium focus:border-orange-500 focus:outline-none focus:bg-white bg-slate-50 transition-all">
+                                <button class="btn-clear absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600" onclick="clearSearch()"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+
+                            <!-- CSAT Pills with Rich Hover & Icons -->
+                            <div class="filter-pills flex bg-slate-200/80 p-1 rounded-xl gap-1 border border-slate-300/60">
+                                <button class="pill-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-csat="" onclick="filterCSAT('')">
+                                    <i class="fa-solid fa-list-ul mr-1"></i> Tất cả
+                                </button>
+                                <button class="pill-btn danger csat-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-csat="1" onclick="filterCSAT('1')">
+                                    <i class="fa-solid fa-circle-exclamation mr-1"></i> CSAT 1
+                                </button>
+                                <button class="pill-btn warning csat-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-csat="2" onclick="filterCSAT('2')">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> CSAT 2
+                                </button>
+                            </div>
+
+                            <!-- Survey checkbox -->
+                            <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-700">
+                                <input type="checkbox" id="filter-only-survey" checked onchange="handleFilterChange()" class="rounded border-slate-300 text-orange-500 focus:ring-orange-400">
+                                <span>Chỉ thư KS gốc</span>
+                            </label>
+                        </div>
+                    </div>
+
+
+                    <!-- Dual-Tier Grouped Table -->
+                    <div class="table-container overflow-x-auto">
+                        <table class="data-table w-full text-left border-collapse" id="cem-table">
+                            <thead>
+                                <tr class="group-header-row border-b-2 border-slate-200">
+                                    <th colspan="5" class="th-group th-group-basic py-2 px-4 text-xs font-black tracking-wider uppercase bg-blue-50/80 text-blue-800 border-r-2 border-blue-200">
+                                        <i class="fa-solid fa-id-card text-blue-600 mr-1.5"></i> THÔNG TIN CƠ BẢN
+                                    </th>
+                                    <th colspan="5" class="th-group th-group-eval py-2 px-4 text-xs font-black tracking-wider uppercase bg-orange-50/80 text-orange-900 border-r-2 border-orange-200">
+                                        <i class="fa-solid fa-star-half-stroke text-orange-600 mr-1.5"></i> THÔNG TIN ĐÁNH GIÁ
+                                    </th>
+                                    <th rowspan="2" class="th-group th-group-action py-2 px-3 text-xs font-black tracking-wider uppercase text-slate-500 text-center align-middle bg-slate-100">
+                                        THAO TÁC
+                                    </th>
+                                </tr>
+                                <tr class="sub-header-row text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40">Số Hợp Đồng</th>
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40">Tên Chủ HĐ</th>
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40">NVKT</th>
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40">SĐT Đánh Giá</th>
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40 border-r-2 border-blue-200">Địa Chỉ</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">CSAT</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">Nhóm Lỗi Phản Ánh</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">Ghi Chú</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">Hoàn Tất Bảo Trì</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40 border-r-2 border-orange-200">Thời Gian Đánh Giá</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-body" class="divide-y divide-slate-100 text-xs">
+                                <tr>
+                                    <td colspan="11" class="text-center py-8">
+                                        <div class="loading-state flex flex-col items-center justify-center">
+                                            <i class="fa-solid fa-circle-notch fa-spin text-orange-500 text-2xl"></i>
+                                            <p class="mt-2 text-xs font-semibold text-slate-500">Đang nạp dữ liệu chi tiết...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Table Pagination -->
+                    <div class="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                        <div class="text-xs font-semibold text-slate-500" id="pagination-info">Hiển thị 0 - 0 của 0</div>
+                        <div class="flex items-center gap-1.5">
+                            <button id="btn-prev" onclick="changePage(-1)" disabled class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> Trước
+                            </button>
+                            <span id="current-page" class="px-3 py-1 text-xs font-black text-orange-600 bg-orange-50 border border-orange-200 rounded">1</span>
+                            <button id="btn-next" onclick="changePage(1)" disabled class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Sau <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. KHU VỰC BIỂU ĐỒ PHÂN TÍCH (NẰM NGAY TRONG TAG CEM) -->
+                <section class="space-y-4">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-5 rounded-full bg-blue-600"></span>
+                        <h3 class="text-sm font-bold text-slate-900 uppercase tracking-wider">Biểu Đồ Phân Tích Chuyên Sâu CEM</h3>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                        <div class="lg:col-span-4 bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4">
+                            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-chart-pie text-orange-500"></i> Tỷ Lệ CSAT 1 vs CSAT 2
+                                </h4>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-500">Tỷ lệ</span>
+                            </div>
+                            <div class="h-60 flex items-center justify-center">
+                                <canvas id="chart-csat-pie"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-8 bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4">
+                            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-chart-line text-blue-500"></i> Diễn Biến CSAT Theo Ngày Đánh Giá
+                                </h4>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-600">Timeline</span>
+                            </div>
+                            <div class="h-60">
+                                <canvas id="chart-timeline"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4">
+                            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-ranking-star text-amber-500"></i> Top NVKT Có Nhiều Phản Ánh
+                                </h4>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-600">Xếp hạng</span>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="chart-techs"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4">
+                            <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                                <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-triangle-exclamation text-red-500"></i> Nhóm Lỗi Phản Ánh Của Khách Hàng
+                                </h4>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-red-50 text-red-600">Phân loại lỗi</span>
+                            </div>
+                            <div class="h-64">
+                                <canvas id="chart-issues"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- VIEW 2: TAG GIỤC TIẾN ĐỘ                                  -->
+            <!-- ========================================================= -->
+            <div id="view-giuc" class="view-tab space-y-6">
+                
+                <!-- 1. MUI Card: BỘ LỌC THỜI GIAN NHẬN MAIL & PHÂN CÔNG NHÂN SỰ -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                        <span class="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
+                            <i class="fa-regular fa-calendar-check"></i>
+                        </span>
+                        <span>Bộ lọc thời gian:</span>
+                    </div>
+
+                    <!-- Date range inputs for Giục Tiến Độ -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-red-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-medium text-slate-500">Từ:</label>
+                            <input type="date" id="filter-giuc-date-from" onchange="handleGiucDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none">
+                        </div>
+                        <i class="fa-solid fa-arrow-right text-xs text-slate-400"></i>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-red-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-medium text-slate-500">Đến:</label>
+                            <input type="date" id="filter-giuc-date-to" onchange="handleGiucDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none">
+                        </div>
+                    </div>
+
+                    <!-- MUI Chip Presets for Giục Tiến Độ -->
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button class="preset-btn active px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="all" onclick="setQuickGiucDate('all')">Tất cả</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="today" onclick="setQuickGiucDate('today')">Hôm nay</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="yesterday" onclick="setQuickGiucDate('yesterday')">Hôm qua</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="7days" onclick="setQuickGiucDate('7days')">7 ngày qua</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border transition-all" data-preset="month" onclick="setQuickGiucDate('month')">Tháng này</button>
+                        <button class="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-all ml-1" onclick="resetGiucDateFilter()" title="Đặt lại bộ lọc ngày">
+                            <i class="fa-solid fa-rotate-left"></i>
+                        </button>
+                    </div>
+
+                    <!-- Bộ lọc theo Nhân Sự (Block & Đội Trưởng) cho Giục Tiến Độ -->
+                    <div class="flex items-center gap-2.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-2 lg:pt-0 lg:pl-3 w-full lg:w-auto">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-red-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-building text-red-500 text-[11px]"></i> Block:</label>
+                            <select id="filter-giuc-block" onchange="handleGiucNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[130px]">
+                                <option value="">Tất cả Block</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-red-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-user-shield text-red-500 text-[11px]"></i> Đội Trưởng:</label>
+                            <select id="filter-giuc-doi-truong" onchange="handleGiucNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[140px]">
+                                <option value="">Tất cả Đội Trưởng</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. MUI KPI Grid (Giục Tiến Độ - Clickable Cards) -->
+                <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- Total -->
+                    <div id="kpi-card-giuc-total" onclick="filterGiucPrio('')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-red-500" title="Bấm để lọc tất cả ca giục tiến độ">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Ca Giục Tiến Độ</span>
+                            <div class="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-bell"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-giuc-total" class="text-2xl font-black text-slate-900 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Theo thời gian &amp; bộ lọc</span>
+                        </div>
+                    </div>
+
+                    <!-- Khẩn Cấp -->
+                    <div id="kpi-card-giuc-khan" onclick="filterGiucPrio('Khẩn')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-red-500" title="Bấm để lọc ca Khẩn Cấp">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-red-600 uppercase tracking-wider">Khẩn Cấp</span>
+                            <div class="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-giuc-khan" class="text-2xl font-black text-red-600 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Cần xử lý ngay</span>
+                        </div>
+                    </div>
+
+                    <!-- Ưu Tiên Cao -->
+                    <div id="kpi-card-giuc-cao" onclick="filterGiucPrio('Cao')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-amber-500" title="Bấm để lọc ca Ưu Tiên Cao">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-amber-600 uppercase tracking-wider">Ưu Tiên Cao</span>
+                            <div class="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-fire"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-giuc-cao" class="text-2xl font-black text-amber-600 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Cần xử lý gấp</span>
+                        </div>
+                    </div>
+
+                    <!-- Normal -->
+                    <div id="kpi-card-giuc-normal" onclick="filterGiucPrio('Bình thường')" class="kpi-clickable bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-blue-500" title="Bấm để lọc ca Bình Thường">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-blue-600 uppercase tracking-wider">Ưu Tiên Bình Thường</span>
+                            <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-giuc-normal" class="text-2xl font-black text-blue-600 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Đang trong tiến trình</span>
+                        </div>
+                    </div>
+
+                    <!-- Assignees -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-emerald-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Nhân Viên Xử Lý</span>
+                            <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm">
+                                <i class="fa-solid fa-user-check"></i>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h3 id="kpi-giuc-assignees" class="text-2xl font-black text-slate-900 tracking-tight">0</h3>
+                            <span class="text-[11px] text-slate-500">Đang phụ trách chăm sóc</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. MUI Card: BẢNG CHI TIẾT GIỤC TIẾN ĐỘ -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-bolt text-orange-500"></i>
+                                Danh Sách KH Có Yêu Cầu Giục Tiến Độ
+                            </h2>
+                            <span id="table-giuc-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-700">0 bản ghi</span>
+                        </div>
+
+                        <!-- Search and Priority Pills with Rich Hover & Icons -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            <div class="relative">
+                                <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                                <input type="text" id="filter-giuc-search" onkeyup="handleGiucSearch(event)" placeholder="Tìm số HĐ, NV xử lý, mã SR..."
+                                       class="pl-8 pr-7 py-1.5 w-60 rounded-lg border border-slate-300 text-xs font-medium focus:border-orange-500 focus:outline-none focus:bg-white bg-slate-50 transition-all">
+                                <button class="btn-clear absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600" onclick="clearGiucSearch()"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+
+                            <div class="filter-pills flex bg-slate-200/80 p-1 rounded-xl gap-1 border border-slate-300/60">
+                                <button class="pill-btn active px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-prio="" onclick="filterGiucPrio('')">
+                                    <i class="fa-solid fa-list-ul mr-1"></i> Tất cả
+                                </button>
+                                <button class="pill-btn danger prio-khan px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-prio="Khẩn" onclick="filterGiucPrio('Khẩn')">
+                                    <i class="fa-solid fa-triangle-exclamation mr-1"></i> Khẩn Cấp
+                                </button>
+                                <button class="pill-btn warning prio-cao px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-prio="Cao" onclick="filterGiucPrio('Cao')">
+                                    <i class="fa-solid fa-fire mr-1"></i> Ưu Tiên Cao
+                                </button>
+                                <button class="pill-btn info prio-normal px-3 py-1.5 rounded-lg text-xs font-bold transition-all" data-prio="Bình thường" onclick="filterGiucPrio('Bình thường')">
+                                    <i class="fa-solid fa-circle-check mr-1"></i> Bình Thường
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dual-Tier Table: Giục Tiến Độ -->
+                    <div class="table-container overflow-x-auto">
+                        <table class="data-table w-full text-left border-collapse" id="giuc-table">
+                            <thead>
+                                <tr class="group-header-row border-b-2 border-slate-200">
+                                    <!-- NHÓM THÔNG TIN CƠ BẢN -->
+                                    <th colspan="2" class="th-group th-group-basic py-2 px-4 text-xs font-black tracking-wider uppercase bg-blue-50/80 text-blue-800 border-r-2 border-blue-200" style="width: 260px;">
+                                        <i class="fa-solid fa-user-tie text-blue-600 mr-1.5"></i> THÔNG TIN CƠ BẢN
+                                    </th>
+                                    <!-- NHÓM THÔNG TIN YÊU CẦU -->
+                                    <th colspan="5" class="th-group th-group-eval py-2 px-4 text-xs font-black tracking-wider uppercase bg-orange-50/80 text-orange-900 border-r-2 border-orange-200">
+                                        <i class="fa-solid fa-file-invoice text-orange-600 mr-1.5"></i> THÔNG TIN YÊU CẦU
+                                    </th>
+                                    <th rowspan="2" class="th-group th-group-action py-2 px-3 text-xs font-black tracking-wider uppercase text-slate-500 text-center align-middle bg-slate-100" style="width: 90px;">
+                                        THAO TÁC
+                                    </th>
+                                </tr>
+                                <tr class="sub-header-row text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40 text-center" style="width: 60px;">STT</th>
+                                    <th class="col-basic py-2.5 px-3 bg-blue-50/40 border-r-2 border-blue-200">Nhân Viên Xử Lý</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40" style="width: 140px;">Số Hợp Đồng</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">Mã SR/Ticket</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40 text-center" style="width: 120px;">Độ Ưu Tiên</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40">Nội Dung Yêu Cầu</th>
+                                    <th class="col-eval py-2.5 px-3 bg-orange-50/40 border-r-2 border-orange-200" style="width: 150px;">Thời Gian Nhận Mail</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-giuc-body" class="divide-y divide-slate-100 text-xs">
+                                <tr>
+                                    <td colspan="8" class="text-center py-8">
+                                        <div class="loading-state flex flex-col items-center justify-center">
+                                            <i class="fa-solid fa-circle-notch fa-spin text-orange-500 text-2xl"></i>
+                                            <p class="mt-2 text-xs font-semibold text-slate-500">Đang nạp dữ liệu giục tiến độ...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination: Giục Tiến Độ -->
+                    <div class="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                        <div class="text-xs font-semibold text-slate-500" id="giuc-pagination-info">Hiển thị 0 - 0 của 0</div>
+                        <div class="flex items-center gap-1.5">
+                            <button id="btn-giuc-prev" onclick="changeGiucPage(-1)" disabled class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> Trước
+                            </button>
+                            <span id="current-giuc-page" class="px-3 py-1 text-xs font-black text-orange-600 bg-orange-50 border border-orange-200 rounded">1</span>
+                            <button id="btn-giuc-next" onclick="changeGiucPage(1)" disabled class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Sau <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- VIEW 3: CLL >3                                           -->
+            <!-- ========================================================= -->
+            <div id="view-cll" class="view-tab space-y-6">
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                        <span class="w-8 h-8 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center"><i class="fa-regular fa-calendar-check"></i></span>
+                        <span>Lọc theo thời gian nhận mail:</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300"><label class="text-xs font-medium text-slate-500">Từ:</label><input type="date" id="filter-cll-date-from" onchange="handleCllDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none"></div>
+                        <i class="fa-solid fa-arrow-right text-xs text-slate-400"></i>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300"><label class="text-xs font-medium text-slate-500">Đến:</label><input type="date" id="filter-cll-date-to" onchange="handleCllDateChange()" class="bg-transparent text-xs font-semibold text-slate-800 outline-none"></div>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <button class="preset-btn active px-3 py-1 text-xs font-semibold rounded-md border" data-preset="all" onclick="setQuickCllDate('all')">Tất cả</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border" data-preset="today" onclick="setQuickCllDate('today')">Hôm nay</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border" data-preset="7days" onclick="setQuickCllDate('7days')">7 ngày qua</button>
+                        <button class="preset-btn px-3 py-1 text-xs font-semibold rounded-md border" data-preset="month" onclick="setQuickCllDate('month')">Tháng này</button>
+                    </div>
+
+                    <!-- Bộ lọc theo Nhân Sự (Block & Đội Trưởng) cho CLL -->
+                    <div class="flex items-center gap-2.5 border-t lg:border-t-0 lg:border-l border-slate-200 pt-2 lg:pt-0 lg:pl-3 w-full lg:w-auto">
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-violet-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-building text-violet-500 text-[11px]"></i> Block:</label>
+                            <select id="filter-cll-block" onchange="handleCllNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[130px]">
+                                <option value="">Tất cả Block</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-violet-500 focus-within:bg-white transition-all">
+                            <label class="text-xs font-semibold text-slate-500 flex items-center gap-1"><i class="fa-solid fa-user-shield text-violet-500 text-[11px]"></i> Đội Trưởng:</label>
+                            <select id="filter-cll-doi-truong" onchange="handleCllNsFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[140px]">
+                                <option value="">Tất cả Đội Trưởng</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+                <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-violet-500"><div class="text-xs font-bold text-slate-500 uppercase">Cảnh báo CLL &gt;3</div><h3 id="kpi-cll-total" class="mt-3 text-2xl font-black text-slate-900">0</h3></div>
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-blue-500"><div class="text-xs font-bold text-slate-500 uppercase">Số hợp đồng</div><h3 id="kpi-cll-contracts" class="mt-3 text-2xl font-black text-slate-900">0</h3></div>
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-red-500"><div class="text-xs font-bold text-slate-500 uppercase">Lần phát sinh cao nhất</div><h3 id="kpi-cll-max" class="mt-3 text-2xl font-black text-red-600">0</h3></div>
+                </section>
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50"><div class="flex items-center gap-3"><h2 class="text-sm font-bold text-slate-900"><i class="fa-solid fa-list-check text-violet-600 mr-2"></i>Checklist bảo trì phát sinh từ 3 lần</h2><span id="table-cll-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">0 bản ghi</span></div><input type="text" id="filter-cll-search" onkeyup="handleCllSearch()" placeholder="Tìm số HĐ, tình trạng, nhân viên..." class="px-3 py-1.5 w-60 rounded-lg border border-slate-300 text-xs font-medium focus:border-violet-500 focus:outline-none"></div>
+                    <div class="table-container overflow-x-auto"><table class="data-table w-full text-left border-collapse"><thead><tr class="text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200"><th class="py-2.5 px-3">STT</th><th class="py-2.5 px-3">Số hợp đồng</th><th class="py-2.5 px-3">Nhân viên / Đội trưởng</th><th class="py-2.5 px-3 text-center">Số lần phát sinh</th><th class="py-2.5 px-3">Tình trạng ban đầu</th><th class="py-2.5 px-3">Thời gian nhận mail</th><th class="py-2.5 px-3 text-center">Chi tiết</th></tr></thead><tbody id="table-cll-body" class="divide-y divide-slate-100 text-xs"></tbody></table></div>
+                    <div class="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between"><div class="text-xs font-semibold text-slate-500" id="cll-pagination-info">Hiển thị 0 - 0 của 0</div><div class="flex items-center gap-1.5"><button id="btn-cll-prev" onclick="changeCllPage(-1)" class="px-3 py-1 rounded border border-slate-300 text-xs bg-white">Trước</button><span id="current-cll-page" class="px-3 py-1 text-xs font-black text-violet-600 bg-violet-50 border border-violet-200 rounded">1</span><button id="btn-cll-next" onclick="changeCllPage(1)" class="px-3 py-1 rounded border border-slate-300 text-xs bg-white">Sau</button></div></div>
+                </section>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- VIEW 5: DANH SÁCH LOGIN (Admin)                          -->
+            <!-- ========================================================= -->
+            {% if is_admin %}
+            <div id="view-logins" class="view-tab space-y-5">
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-sm font-bold text-slate-900"><i class="fa-solid fa-key text-indigo-600 mr-2"></i>Danh sách Login</h2>
+                            <span id="table-logins-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">0 tài khoản</span>
+                        </div>
+                        <input type="text" id="filter-logins-search" oninput="renderLoginsTable()" placeholder="Tìm user..."
+                               class="px-3 py-1.5 w-60 rounded-lg border border-slate-300 text-xs font-medium focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    <div class="table-container overflow-x-auto">
+                        <table class="data-table w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                                    <th class="py-2.5 px-3 w-16">STT</th>
+                                    <th class="py-2.5 px-3">User</th>
+                                    <th class="py-2.5 px-3">Mật Khẩu</th>
+                                    <th class="py-2.5 px-3 text-center">Quyền</th>
+                                    <th class="py-2.5 px-3 text-center w-40">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-logins-body" class="divide-y divide-slate-100 text-xs"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+            {% endif %}
+
+            <!-- ========================================================= -->
+            <!-- VIEW 4: NHÂN SỰ (Google Sheets Chi Nhánh Sài Gòn 01)      -->
+            <!-- ========================================================= -->
+            <div id="view-nhansu" class="view-tab space-y-5">
+
+                <!-- Bộ lọc + thanh tìm kiếm -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4">
+                    <div class="flex flex-wrap items-center gap-4">
+                        <!-- Title -->
+                        <div class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                            <span class="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                                <i class="fa-solid fa-filter"></i>
+                            </span>
+                            <span>Bộ lọc Nhân Sự:</span>
+                        </div>
+
+                        <!-- Bộ lọc Block -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-semibold text-slate-600 whitespace-nowrap">Block:</label>
+                            <select id="filter-ns-block"
+                                    onchange="handleNsFilter()"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium focus:border-teal-500 focus:outline-none bg-slate-50 focus:bg-white transition-all min-w-[130px]">
+                                <option value="">Tất cả Block</option>
+                            </select>
+                        </div>
+
+                        <!-- Bộ lọc Đội Trưởng -->
+                        <div class="flex items-center gap-2">
+                            <label class="text-xs font-semibold text-slate-600 whitespace-nowrap">Đội Trưởng:</label>
+                            <select id="filter-ns-doi-truong"
+                                    onchange="handleNsFilter()"
+                                    class="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-medium focus:border-teal-500 focus:outline-none bg-slate-50 focus:bg-white transition-all min-w-[180px]">
+                                <option value="">Tất cả Đội Trưởng</option>
+                            </select>
+                        </div>
+
+                        <!-- Tìm kiếm -->
+                        <div class="relative flex-1 min-w-[200px]">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                            <input type="text" id="filter-ns-search"
+                                   onkeyup="handleNsSearch(event)"
+                                   placeholder="Tìm Họ Tên NV, Mã NV, Inside Account..."
+                                   class="pl-8 pr-7 py-1.5 w-full rounded-lg border border-slate-300 text-xs font-medium focus:border-teal-500 focus:outline-none focus:bg-white bg-slate-50 transition-all">
+                            <button class="btn-clear absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-600" onclick="clearNsSearch()"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+
+                        <!-- Nút hành động -->
+                        <div class="flex items-center gap-2 ml-auto">
+                            <button onclick="refreshNhanSu()"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold transition-all">
+                                <i class="fa-solid fa-rotate" id="ns-refresh-icon"></i> Làm mới Sheet
+                            </button>
+                            <button onclick="openNsSendMailModal()"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm">
+                                <i class="fa-solid fa-envelope"></i> Gửi Mail
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- KPI Nhân Sự -->
+                <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-teal-500">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Nhân Viên</div>
+                        <h3 id="kpi-ns-total" class="mt-3 text-2xl font-black text-slate-900">0</h3>
+                        <span class="text-[11px] text-slate-500">Theo bộ lọc hiện tại</span>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-blue-500">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Số Block</div>
+                        <h3 id="kpi-ns-blocks" class="mt-3 text-2xl font-black text-slate-900">0</h3>
+                        <span class="text-[11px] text-slate-500">Block đang hoạt động</span>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-amber-500">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Số Đội Trưởng</div>
+                        <h3 id="kpi-ns-doi-truong" class="mt-3 text-2xl font-black text-slate-900">0</h3>
+                        <span class="text-[11px] text-slate-500">Đội trưởng phụ trách</span>
+                    </div>
+                </section>
+
+                <!-- Bảng Nhân Sự -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-address-card text-teal-600"></i>
+                                Danh Sách Nhân Viên — Chi Nhánh Sài Gòn 01
+                            </h2>
+                            <span id="table-ns-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-700">0 NV</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400 italic">Google Sheets · GID: 32204814</span>
+                    </div>
+
+                    <div class="table-container overflow-x-auto">
+                        <table class="data-table w-full text-left border-collapse" id="ns-table">
+                            <thead>
+                                <tr class="group-header-row border-b-2 border-slate-200">
+                                    <th colspan="5" class="th-group py-2 px-4 text-xs font-black tracking-wider uppercase bg-teal-50/80 text-teal-800 border-r-2 border-teal-200">
+                                        <i class="fa-solid fa-user text-teal-600 mr-1.5"></i> THÔNG TIN NHÂN VIÊN
+                                    </th>
+                                    <th colspan="3" class="th-group py-2 px-4 text-xs font-black tracking-wider uppercase bg-orange-50/80 text-orange-900 border-r-2 border-orange-200">
+                                        <i class="fa-solid fa-building text-orange-600 mr-1.5"></i> PHÂN CÔNG
+                                    </th>
+                                    <th colspan="3" class="th-group py-2 px-4 text-xs font-black tracking-wider uppercase bg-blue-50/80 text-blue-800">
+                                        <i class="fa-solid fa-shield-halved text-blue-600 mr-1.5"></i> TÌNH TRẠNG
+                                    </th>
+                                </tr>
+                                <tr class="sub-header-row text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200">
+                                    <th class="py-2.5 px-3 bg-teal-50/40 whitespace-nowrap">Họ Tên NV</th>
+                                    <th class="py-2.5 px-3 bg-teal-50/40">Mã NV</th>
+                                    <th class="py-2.5 px-3 bg-teal-50/40">Inside Account</th>
+                                    <th class="py-2.5 px-3 bg-teal-50/40">SĐT</th>
+                                    <th class="py-2.5 px-3 bg-teal-50/40 border-r-2 border-teal-200">Email</th>
+                                    <th class="py-2.5 px-3 bg-orange-50/40">Block</th>
+                                    <th class="py-2.5 px-3 bg-orange-50/40 whitespace-nowrap">Đội Trưởng</th>
+                                    <th class="py-2.5 px-3 bg-orange-50/40 border-r-2 border-orange-200">Chức Danh</th>
+                                    <th class="py-2.5 px-3 bg-blue-50/40">Loại HĐ</th>
+                                    <th class="py-2.5 px-3 bg-blue-50/40">Tình Trạng HĐ</th>
+                                    <th class="py-2.5 px-3 bg-blue-50/40 whitespace-nowrap">Ngày Vào CT</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-ns-body" class="divide-y divide-slate-100 text-xs">
+                                <tr>
+                                    <td colspan="11" class="text-center py-10">
+                                        <div class="flex flex-col items-center justify-center gap-2">
+                                            <i class="fa-solid fa-circle-notch fa-spin text-teal-500 text-2xl"></i>
+                                            <p class="text-xs font-semibold text-slate-500">Đang tải dữ liệu nhân sự từ Google Sheets...</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="p-3 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between">
+                        <div class="text-xs font-semibold text-slate-500" id="ns-pagination-info">Hiển thị 0 - 0 của 0</div>
+                        <div class="flex items-center gap-1.5">
+                            <button id="btn-ns-prev" onclick="changeNsPage(-1)" disabled
+                                    class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> Trước
+                            </button>
+                            <span id="current-ns-page" class="px-3 py-1 text-xs font-black text-teal-600 bg-teal-50 border border-teal-200 rounded">1</span>
+                            <button id="btn-ns-next" onclick="changeNsPage(1)" disabled
+                                    class="px-3 py-1 rounded border border-slate-300 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                                Sau <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- MUI DIALOG MODAL: EMAIL DETAIL                            -->
+    <!-- ========================================================= -->
+    <div id="detail-modal" class="modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="modal-dialog bg-white rounded-2xl shadow-mui-dialog border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <!-- Modal Header -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+                <div class="flex items-center gap-3">
+                    <span id="modal-badge-type" class="px-2.5 py-1 rounded-md text-xs font-black uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200">
+                        CHI TIẾT THƯ GỐC
+                    </span>
+                    <h3 id="modal-contract-title" class="text-sm font-bold text-slate-900 truncate max-w-lg">
+                        Chi Tiết Hợp Đồng
+                    </h3>
+                </div>
+                <button onclick="closeDetailModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Modal Tabs -->
+            <div class="modal-tabs flex border-b border-slate-200 px-6 bg-white gap-2">
+                <button onclick="switchModalTab('parsed')" class="tab-btn active py-3 px-4 text-xs font-bold text-slate-600 border-b-2 border-transparent flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-id-card"></i> Thông Tin Bóc Tách
+                </button>
+                <button onclick="switchModalTab('raw')" class="tab-btn py-3 px-4 text-xs font-bold text-slate-600 border-b-2 border-transparent flex items-center gap-2 transition-all">
+                    <i class="fa-solid fa-envelope-open-text"></i> Email Gốc (HTML Outlook)
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50/50">
+                <div id="modal-tab-parsed" class="tab-content active">
+                    <div id="modal-detail-grid" class="detail-grid grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- JS injected content -->
+                    </div>
+                </div>
+
+                <div id="modal-tab-raw" class="tab-content hidden">
+                    <iframe id="modal-iframe" class="w-full h-[520px] bg-white rounded-xl border border-slate-300 shadow-inner" sandbox="allow-same-origin"></iframe>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-6 py-3 border-t border-slate-200 bg-white flex justify-end">
+                <button onclick="closeDetailModal()" class="px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MUI DIALOG MODAL: SETTINGS                                -->
+    <!-- ========================================================= -->
+    <div id="settings-modal" class="modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="modal-dialog bg-white rounded-2xl shadow-mui-dialog border border-slate-200 max-w-md w-full overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-server text-orange-500"></i> Cấu Hình Mail Server
+                </h3>
+                <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <form id="settings-form" onsubmit="saveSettings(event)" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Địa chỉ Mail FPT:</label>
+                    <input type="email" id="cfg-email" value="phuongnam.phongnh5@fpt.net" required
+                           class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-orange-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu Mail:</label>
+                    <input type="password" id="cfg-password" value="Benngo@@2026" required
+                           class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-orange-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">IMAP Host:</label>
+                        <input type="text" id="cfg-host" value="mail.fpt.net" required
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-orange-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Cổng SSL:</label>
+                        <input type="number" id="cfg-port" value="993" required
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-orange-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-200 flex justify-end gap-2">
+                    <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                        Hủy
+                    </button>
+                    <button type="submit" class="px-4 py-2 text-xs font-bold uppercase bg-orange-600 hover:bg-orange-700 text-white rounded-lg shadow-sm transition-colors">
+                        Lưu &amp; Đồng Bộ Thử
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MUI Snackbar / Toast -->
+    <div id="toast" class="toast fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs font-semibold transform translate-y-24 opacity-0 transition-all duration-300 z-50"></div>
+
+    <!-- ================================================================ -->
+    <!-- MODAL: GỬI MAIL NHÂN SỰ                                         -->
+    <!-- ================================================================ -->
+    <div id="ns-mail-modal" class="modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="modal-dialog bg-white rounded-2xl shadow-mui-dialog border border-slate-200 max-w-lg w-full overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-teal-50/60">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-envelope text-teal-600"></i> Gửi Mail Thông Báo Nhân Sự
+                </h3>
+                <button onclick="closeNsSendMailModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <!-- Tiêu đề -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Tiêu đề mail: <span class="text-red-500">*</span></label>
+                    <input type="text" id="ns-mail-subject"
+                           value="[FPT Telecom - CN Sài Gòn 01] Thông tin Nhân Sự"
+                           class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-teal-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                </div>
+                <!-- Phạm vi gửi -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Block (tùy chọn):</label>
+                        <select id="ns-mail-block" class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-teal-500 focus:outline-none bg-slate-50">
+                            <option value="">Tất cả Block</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Đội Trưởng (tùy chọn):</label>
+                        <select id="ns-mail-doi-truong" class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-teal-500 focus:outline-none bg-slate-50">
+                            <option value="">Tất cả Đội Trưởng</option>
+                        </select>
+                    </div>
+                </div>
+                <!-- Email bổ sung -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Email bổ sung (mỗi dòng 1 địa chỉ):</label>
+                    <textarea id="ns-mail-extra" rows="3" placeholder="vd: nhansu@fpt.net&#10;manager@fpt.net"
+                              class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-teal-500 focus:outline-none bg-slate-50 focus:bg-white transition-all resize-none"></textarea>
+                </div>
+                <div class="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                    <p class="text-xs text-teal-800 font-medium">
+                        <i class="fa-solid fa-circle-info mr-1 text-teal-600"></i>
+                        Mail sẽ được gửi đến tất cả email trong cột <strong>Email</strong> của Sheet (theo bộ lọc) + địa chỉ bổ sung +
+                        <strong>phuongnam.phongnh5@fpt.net</strong>.
+                    </p>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-2 bg-slate-50/50">
+                <button onclick="closeNsSendMailModal()" class="px-4 py-2 text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Hủy</button>
+                <button onclick="sendNsMail()" id="btn-ns-send-mail"
+                        class="px-5 py-2 text-xs font-bold uppercase bg-teal-600 hover:bg-teal-700 text-white rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> Gửi Ngay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Controller -->
+    <script>window.IS_ADMIN = {{ 'true' if is_admin else 'false' }};</script>
+    <script src="/static/js/dashboard.js"></script>
+</body>
+
+</html>

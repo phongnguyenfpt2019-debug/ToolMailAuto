@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập | FPT Telecom - Chi Nhánh Sài Gòn 01</title>
+    <meta name="description" content="Đăng nhập hệ thống Dashboard CEM & Giục Tiến Độ - FPT Telecom Chi Nhánh Sài Gòn 01">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Roboto', sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 15% 20%, #ffb37a 0%, transparent 40%),
+                        radial-gradient(circle at 85% 80%, #f26f21 0%, transparent 45%),
+                        linear-gradient(135deg, #1e1b2e 0%, #2b1d14 100%);
+            overflow: hidden; color: #1e293b;
+        }
+        .blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .35; animation: float 12s ease-in-out infinite; }
+        .blob.b1 { width: 320px; height: 320px; background: #f26f21; top: -80px; left: -60px; }
+        .blob.b2 { width: 260px; height: 260px; background: #fbbf24; bottom: -60px; right: -40px; animation-delay: -6s; }
+        @keyframes float { 0%,100% { transform: translate(0,0); } 50% { transform: translate(30px,25px); } }
+
+        .card {
+            position: relative; z-index: 1; width: 400px; max-width: calc(100vw - 32px);
+            background: rgba(255,255,255,.92); backdrop-filter: blur(18px);
+            border: 1px solid rgba(255,255,255,.6); border-radius: 20px; padding: 36px 32px 28px;
+            box-shadow: 0 25px 60px -15px rgba(0,0,0,.5); animation: rise .5s ease;
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        .brand { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 26px; }
+        .brand img { height: 44px; }
+        .brand h1 { font-size: 18px; font-weight: 900; letter-spacing: -.2px; }
+        .brand p { font-size: 12px; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+
+        label { display: block; font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px; }
+        .field { position: relative; margin-bottom: 14px; }
+        .field i.lead { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px; }
+        .field input {
+            width: 100%; padding: 12px 42px 12px 40px; border: 1.5px solid #e2e8f0; border-radius: 12px;
+            font-size: 14px; font-family: inherit; background: #f8fafc; transition: all .2s;
+        }
+        .field input:focus { outline: none; border-color: #f26f21; background: #fff; box-shadow: 0 0 0 4px rgba(242,111,33,.12); }
+        .field input[readonly] { color: #64748b; }
+        .field .trail { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none;
+            color: #94a3b8; cursor: pointer; font-size: 13px; padding: 4px; }
+        .field .trail:hover { color: #f26f21; }
+
+        .step { display: none; }
+        .step.show { display: block; animation: rise .35s ease; }
+
+        .greet { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+            background: #fff7ed; border: 1px solid #fed7aa; margin-bottom: 14px; font-size: 13px; }
+        .greet .av { width: 34px; height: 34px; border-radius: 50%; background: linear-gradient(135deg,#f26f21,#fbbf24);
+            color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 900; }
+        .greet small { display: block; color: #9a3412; font-size: 11px; font-weight: 600; }
+
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: 12px; cursor: pointer; font-family: inherit;
+            font-size: 13px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #fff;
+            background: linear-gradient(135deg, #f26f21, #ff9a56); box-shadow: 0 8px 20px -6px rgba(242,111,33,.6);
+            transition: transform .15s, box-shadow .2s; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 24px -6px rgba(242,111,33,.7); }
+        .btn:active { transform: scale(.98); }
+        .btn:disabled { opacity: .6; cursor: wait; }
+        .link { display: block; text-align: center; margin-top: 14px; font-size: 12px; color: #64748b; cursor: pointer; }
+        .link:hover { color: #f26f21; }
+
+        .alert { display: none; padding: 10px 12px; border-radius: 10px; font-size: 12.5px; font-weight: 500; margin-bottom: 14px; }
+        .alert.err { display: block; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .alert.info { display: block; background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+        .shake { animation: shake .35s; }
+        @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+        .foot { text-align: center; margin-top: 22px; font-size: 11px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+<div class="blob b1"></div>
+<div class="blob b2"></div>
+
+<main class="card" id="card">
+    <div class="brand">
+        <img src="https://management.mypt.vn/images/FPT_Telecom_logo.svg" alt="FPT Telecom">
+        <h1>Đăng Nhập Hệ Thống</h1>
+        <p>Chi Nhánh Sài Gòn 01</p>
+    </div>
+
+    <div id="alert" class="alert"></div>
+
+    <!-- STEP 1: Email -->
+    <form id="step-email" class="step show" onsubmit="checkEmail(event)">
+        <label for="inp-email">Email</label>
+        <div class="field">
+            <i class="fa-regular fa-envelope lead"></i>
+            <input id="inp-email" type="text" autocomplete="username" placeholder="ten@fpt.net" autofocus required>
+        </div>
+        <button class="btn" id="btn-next" type="submit">Tiếp tục <i class="fa-solid fa-arrow-right"></i></button>
+    </form>
+
+    <!-- STEP 2: Password (login / register) -->
+    <form id="step-pass" class="step" onsubmit="submitPass(event)">
+        <div class="greet">
+            <div class="av" id="greet-av">?</div>
+            <div><span id="greet-name">—</span><small id="greet-email"></small></div>
+        </div>
+
+        <label for="inp-pass" id="lbl-pass">Mật khẩu</label>
+        <div class="field">
+            <i class="fa-solid fa-lock lead"></i>
+            <input id="inp-pass" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu" required>
+            <button type="button" class="trail" onclick="togglePw('inp-pass', this)"><i class="fa-regular fa-eye"></i></button>
+        </div>
+
+        <div id="wrap-confirm" style="display:none">
+            <label for="inp-pass2">Xác nhận mật khẩu</label>
+            <div class="field">
+                <i class="fa-solid fa-shield-halved lead"></i>
+                <input id="inp-pass2" type="password" autocomplete="new-password" placeholder="Nhập lại mật khẩu">
+                <button type="button" class="trail" onclick="togglePw('inp-pass2', this)"><i class="fa-regular fa-eye"></i></button>
+            </div>
+        </div>
+
+        <button class="btn" id="btn-submit" type="submit"><i class="fa-solid fa-right-to-bracket"></i> <span id="btn-text">Đăng nhập</span></button>
+        <a class="link" onclick="backToEmail()"><i class="fa-solid fa-arrow-left"></i> Dùng email khác</a>
+    </form>
+
+    <div class="foot">© FPT Telecom · CSKH &amp; Vận Hành</div>
+</main>
+
+<script>
+    let mode = null; // 'admin' | 'login' | 'register'
+    let username = '';
+    const $ = id => document.getElementById(id);
+
+    function showAlert(msg, type = 'err') {
+        const a = $('alert');
+        a.className = 'alert ' + type;
+        a.textContent = msg;
+        if (type === 'err') { $('card').classList.remove('shake'); void $('card').offsetWidth; $('card').classList.add('shake'); }
+    }
+    function clearAlert() { $('alert').className = 'alert'; }
+
+    function togglePw(id, btn) {
+        const inp = $(id);
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+        btn.innerHTML = `<i class="fa-regular ${inp.type === 'password' ? 'fa-eye' : 'fa-eye-slash'}"></i>`;
+    }
+
+    async function post(url, body) {
+        const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        return res.json();
+    }
+
+    async function checkEmail(e) {
+        e.preventDefault();
+        clearAlert();
+        username = $('inp-email').value.trim();
+        if (!username) return;
+        const btn = $('btn-next');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang kiểm tra...';
+        try {
+            const j = await post('/api/auth/check', { username });
+            if (!j.success) return showAlert(j.error || 'Email không hợp lệ');
+            mode = j.status;
+            $('greet-name').textContent = j.name || username;
+            $('greet-email').textContent = username;
+            $('greet-av').textContent = (j.name || username).trim().charAt(0).toUpperCase();
+            const isReg = mode === 'register';
+            $('wrap-confirm').style.display = isReg ? 'block' : 'none';
+            $('inp-pass2').required = isReg;
+            $('lbl-pass').textContent = isReg ? 'Tạo mật khẩu mới' : 'Mật khẩu';
+            $('inp-pass').placeholder = isReg ? 'Tối thiểu 6 ký tự' : 'Nhập mật khẩu';
+            $('inp-pass').autocomplete = isReg ? 'new-password' : 'current-password';
+            $('btn-text').textContent = isReg ? 'Đăng ký & Đăng nhập' : 'Đăng nhập';
+            if (isReg) showAlert('Tài khoản mới — vui lòng đăng ký mật khẩu để sử dụng hệ thống.', 'info');
+            $('step-email').classList.remove('show');
+            $('step-pass').classList.add('show');
+            $('inp-pass').value = ''; $('inp-pass2').value = '';
+            setTimeout(() => $('inp-pass').focus(), 50);
+        } catch (err) {
+            showAlert('Không thể kết nối máy chủ');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = 'Tiếp tục <i class="fa-solid fa-arrow-right"></i>';
+        }
+    }
+
+    async function submitPass(e) {
+        e.preventDefault();
+        clearAlert();
+        const password = $('inp-pass').value;
+        if (mode === 'register') {
+            if (password.length < 6) return showAlert('Mật khẩu tối thiểu 6 ký tự');
+            if (password !== $('inp-pass2').value) return showAlert('Mật khẩu xác nhận không khớp');
+        }
+        const btn = $('btn-submit');
+        btn.disabled = true;
+        try {
+            const url = mode === 'register' ? '/api/auth/register' : '/api/auth/login';
+            const j = await post(url, { username, password });
+            if (!j.success) return showAlert(j.error || 'Đăng nhập thất bại');
+            window.location.href = '/';
+        } catch (err) {
+            showAlert('Không thể kết nối máy chủ');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function backToEmail() {
+        clearAlert();
+        $('step-pass').classList.remove('show');
+        $('step-email').classList.add('show');
+        $('inp-email').focus();
+    }
+</script>
+</body>
+</html>
