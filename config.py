@@ -13,19 +13,26 @@ DEFAULT_IMAP_PORT = int(os.getenv("DEFAULT_IMAP_PORT", "993"))
 DEFAULT_EMAIL = os.getenv("DEFAULT_EMAIL", "")
 DEFAULT_PASSWORD = os.getenv("DEFAULT_PASSWORD", "")
 
-# Database path (Hỗ trợ cả môi trường Local và Vercel Serverless /tmp)
+# Base paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 if os.getenv("VERCEL"):
     DATA_DIR = os.getenv("DATA_DIR", "/tmp/data")
 else:
     DATA_DIR = os.getenv("DATA_DIR", os.path.join(BASE_DIR, "data"))
-DB_PATH = os.path.join(DATA_DIR, "cem_csat.db")
+
+# Supabase Application Database (Lưu trữ chính của hệ thống: Emails, Users, Logs)
+SUPABASE_APP_REF = os.getenv("SUPABASE_APP_REF", "vhpuquqkbikpszihiwah")
+SUPABASE_APP_DB_HOST = os.getenv("SUPABASE_APP_DB_HOST", "aws-0-ap-southeast-1.pooler.supabase.com")
+SUPABASE_APP_DB_PORT = int(os.getenv("SUPABASE_APP_DB_PORT", "6543"))
+SUPABASE_APP_DB_NAME = os.getenv("SUPABASE_APP_DB_NAME", "postgres")
+SUPABASE_APP_DB_USER = os.getenv("SUPABASE_APP_DB_USER", f"postgres.{SUPABASE_APP_REF}")
+SUPABASE_APP_DB_PASSWORD = os.getenv("SUPABASE_APP_DB_PASSWORD", "Benngo@@2026")
 
 # Sync settings
 SYNC_FOLDERS = ["INBOX", "INBOX/TP.PKT1"]
 CEM_SUBJECT_PREFIX = "CEM - CSAT 1, 2 CLDV"
 
-# Supabase (PostgreSQL) source for the CLL >3 dashboard.
+# Supabase (PostgreSQL) source for the external CLL >3 BT table.
 SUPABASE_PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "pmhyostihrzwzwprdkbs")
 SUPABASE_DB_HOST = os.getenv("SUPABASE_DB_HOST", "aws-0-ap-southeast-1.pooler.supabase.com")
 SUPABASE_DB_PORT = int(os.getenv("SUPABASE_DB_PORT", "6543"))
@@ -33,7 +40,7 @@ SUPABASE_DB_NAME = os.getenv("SUPABASE_DB_NAME", "postgres")
 SUPABASE_DB_USER = os.getenv("SUPABASE_DB_USER", f"postgres.{SUPABASE_PROJECT_REF}")
 SUPABASE_DB_PASSWORD = os.getenv("SUPABASE_DB_PASSWORD", DEFAULT_SUPABASE_DB_PASSWORD)
 
-# Supabase mappings
+# Supabase mappings for BT table
 SUPABASE_BT_TABLE = os.getenv("SUPABASE_BT_TABLE", "bt")
 SUPABASE_BT_CONTRACT_COL = os.getenv("SUPABASE_BT_CONTRACT_COL", "Số_HĐ")
 SUPABASE_BT_STAFF_COL = os.getenv("SUPABASE_BT_STAFF_COL", "Nhân_viên")

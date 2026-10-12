@@ -26,16 +26,14 @@ def init_auth_table():
     conn = database.get_connection()
     conn.execute("""
         CREATE TABLE IF NOT EXISTS login_users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id BIGSERIAL PRIMARY KEY,
             username TEXT UNIQUE NOT NULL,
             password TEXT NOT NULL,
             created_at TEXT,
-            last_login TEXT
+            last_login TEXT,
+            role TEXT DEFAULT 'USER'
         )
     """)
-    cols = [r[1] for r in conn.execute("PRAGMA table_info(login_users)").fetchall()]
-    if 'role' not in cols:
-        conn.execute("ALTER TABLE login_users ADD COLUMN role TEXT DEFAULT 'USER'")
     # Email mac dinh luon la ADMIN
     for e in ADMIN_EMAILS:
         conn.execute("UPDATE login_users SET role = 'ADMIN' WHERE username = ?", (e,))
