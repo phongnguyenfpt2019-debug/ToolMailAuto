@@ -66,7 +66,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
     <!-- Custom MUI Stylesheet -->
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <link rel="stylesheet" href="/static/css/dashboard.css?v={{ range(100000, 9999999) | random }}">
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans antialiased overflow-hidden h-screen w-screen flex">
 
@@ -129,6 +129,17 @@
                                 <span>CLL &gt;3</span>
                             </div>
                             <span id="badge-cll-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-violet-100 text-violet-700">0 ca</span>
+                        </a>
+                    </li>
+                    <!-- TAG: TRA CỨU AU -->
+                    <li>
+                        <a href="javascript:void(0)" id="nav-item-au" onclick="switchTag('au')"
+                           class="nav-tab-link flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-150">
+                            <div class="flex items-center gap-3">
+                                <span class="tab-icon text-base"><i class="fa-solid fa-magnifying-glass-location text-blue-600"></i></span>
+                                <span>Tra Cứu AU</span>
+                            </div>
+                            <span id="badge-au-cnt" class="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">0</span>
                         </a>
                     </li>
                 </ul>
@@ -845,6 +856,269 @@
             </div>
 
             <!-- ========================================================= -->
+            <!-- VIEW: TRA CỨU AU                                          -->
+            <!-- ========================================================= -->
+            <div id="view-au" class="view-tab space-y-6">
+
+                <!-- 1. Thanh điều khiển & Tìm kiếm đa năng siêu tốc -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 space-y-3.5">
+                    
+                    <!-- Hàng trên: Tiêu đề + Nút hành động chính (Template, Import, Add, Export) -->
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                            <span class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-base shadow-sm">
+                                <i class="fa-solid fa-magnifying-glass-location"></i>
+                            </span>
+                            <div>
+                                <h2 class="text-sm font-bold text-slate-900 leading-tight">Tra Cứu Thông Tin AU</h2>
+                                <span class="text-[11px] text-slate-500 font-medium">Hỗ trợ tra cứu siêu tốc theo Số HĐ, Tập điểm, TSTC</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons Group -->
+                        <div class="flex flex-wrap items-center gap-2.5">
+                            <!-- Nút Tải Template Mẫu -->
+                            <a href="/api/au/template" id="btn-download-au-template" class="inline-flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm hover:shadow transition-all" title="Bấm để tải file Excel mẫu chuẩn (.xlsx) về máy tính">
+                                <i class="fa-solid fa-file-excel text-sm"></i>
+                                <span>Tải Mẫu Template</span>
+                            </a>
+
+                            <!-- Nút Import File AU: Bấm là mở ngay cửa sổ chọn file từ máy tính -->
+                            <label for="au-direct-upload-input" id="btn-open-au-import" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm hover:shadow transition-all cursor-pointer" title="Bấm để mở ngay cửa sổ chọn file Excel/CSV từ máy tính">
+                                <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                                <span id="btn-import-au-label">Import File AU</span>
+                                <input type="file" id="au-direct-upload-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleAuDirectUpload(event)">
+                            </label>
+
+                            <!-- Nút Thêm Bản Ghi Mới -->
+                            <button type="button" onclick="openAuAddModal()" class="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-lg text-xs font-semibold shadow-sm transition-all" title="Thêm một dòng AU thủ công">
+                                <i class="fa-solid fa-plus text-slate-500"></i>
+                                <span>Thêm Thủ Công</span>
+                            </button>
+
+                            <!-- Xuất Báo Cáo AU Dropdown -->
+                            <div class="relative export-dropdown">
+                                <button type="button" onclick="toggleAuExportMenu()" class="inline-flex items-center gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-xs font-bold px-3 py-2 rounded-lg shadow-sm transition-all">
+                                    <i class="fa-solid fa-download text-slate-500"></i>
+                                    <span>Xuất Dữ Liệu</span>
+                                    <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 ml-0.5"></i>
+                                </button>
+                                <div id="au-export-menu" class="dropdown-menu absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg py-1 hidden z-50">
+                                    <a href="javascript:void(0)" onclick="exportAuReport('excel')" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600">
+                                        <i class="fa-solid fa-file-excel text-emerald-600"></i> File Excel (.xlsx)
+                                    </a>
+                                    <a href="javascript:void(0)" onclick="exportAuReport('csv')" class="flex items-center gap-2 px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600">
+                                        <i class="fa-solid fa-file-csv text-blue-600"></i> File CSV (.csv)
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ô tra cứu tổng hợp thông minh siêu tốc (Trọng tâm) -->
+                    <div class="relative">
+                        <div class="flex items-center bg-blue-50/60 border-2 border-blue-200 focus-within:border-blue-600 focus-within:bg-white rounded-xl px-3.5 py-2 transition-all shadow-sm">
+                            <i class="fa-solid fa-bolt text-blue-600 text-sm mr-2.5"></i>
+                            <input type="text" id="filter-au-smart-search" oninput="handleAuSmartSearch(event)"
+                                   placeholder="⚡ TRA CỨU NHANH: Nhập Số hợp đồng, Tập điểm, hoặc TSTC... (Tìm tức thì, có thể gõ liên tục)"
+                                   class="bg-transparent w-full text-xs font-bold text-slate-900 placeholder:text-slate-400 outline-none">
+                            <button id="btn-clear-au-smart" onclick="clearAuSmartSearch()" class="hidden text-slate-400 hover:text-slate-600 px-1 text-xs" title="Xóa tìm kiếm">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                            <span class="ml-2 pl-2 border-l border-blue-200 flex items-center gap-1 text-[11px] font-semibold text-blue-700 whitespace-nowrap">
+                                <i class="fa-solid fa-stopwatch text-blue-500"></i>
+                                <span id="au-query-time">0 ms</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Bộ lọc trường chi tiết: Số HĐ / Tập điểm / TSTC / Block / Đường / KTV -->
+                    <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2.5">
+                        <span class="text-xs font-bold text-slate-500 flex items-center gap-1">
+                            <i class="fa-solid fa-sliders text-blue-500 text-[11px]"></i> Lọc chi tiết:
+                        </span>
+
+                        <!-- Số hợp đồng -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Số HĐ:</label>
+                            <input type="text" id="filter-au-so-hop-dong" oninput="handleAuDetailFilter()" placeholder="vd: SGN01..." class="bg-transparent text-xs font-semibold text-slate-800 outline-none w-24">
+                        </div>
+
+                        <!-- Tập điểm -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Tập điểm:</label>
+                            <input type="text" id="filter-au-tap-diem" oninput="handleAuDetailFilter()" placeholder="vd: TD-..." class="bg-transparent text-xs font-semibold text-slate-800 outline-none w-24">
+                        </div>
+
+                        <!-- TSTC -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">TSTC:</label>
+                            <input type="text" id="filter-au-tstc" oninput="handleAuDetailFilter()" placeholder="vd: TSTC-..." class="bg-transparent text-xs font-semibold text-slate-800 outline-none w-24">
+                        </div>
+
+                        <!-- Block -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Block:</label>
+                            <select id="filter-au-block" onchange="handleAuDetailFilter()" class="bg-transparent text-xs font-bold text-slate-800 outline-none min-w-[110px]">
+                                <option value="">Tất cả Block</option>
+                            </select>
+                        </div>
+
+                        <!-- Đường -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">Đường:</label>
+                            <input type="text" id="filter-au-duong" oninput="handleAuDetailFilter()" placeholder="vd: Nguyễn..." class="bg-transparent text-xs font-semibold text-slate-800 outline-none w-24">
+                        </div>
+
+                        <!-- KTV* T10 -->
+                        <div class="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-300 focus-within:border-blue-500 focus-within:bg-white transition-all">
+                            <label class="text-[11px] font-semibold text-slate-500 whitespace-nowrap">KTV* T10:</label>
+                            <input type="text" id="filter-au-ktv" oninput="handleAuDetailFilter()" placeholder="vd: KTV..." class="bg-transparent text-xs font-semibold text-slate-800 outline-none w-24">
+                        </div>
+
+                        <!-- Reset Filter -->
+                        <button onclick="resetAuFilters()" class="px-2.5 py-1 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-md transition-all ml-auto" title="Đặt lại bộ lọc">
+                            <i class="fa-solid fa-rotate-left mr-1"></i> Đặt lại
+                        </button>
+                    </div>
+                </section>
+
+                <!-- 2. KPI Cards AU -->
+                <section class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <!-- Tổng AU -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-blue-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Tổng Bản Ghi AU</span>
+                            <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-database"></i>
+                            </div>
+                        </div>
+                        <h3 id="kpi-au-total" class="mt-2 text-2xl font-black text-slate-900">0</h3>
+                        <span class="text-[11px] text-slate-500">Trong hệ thống</span>
+                    </div>
+
+                    <!-- Số Hợp Đồng -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-orange-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-orange-600 uppercase tracking-wider">Số Hợp Đồng</span>
+                            <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-file-contract"></i>
+                            </div>
+                        </div>
+                        <h3 id="kpi-au-contracts" class="mt-2 text-2xl font-black text-orange-600">0</h3>
+                        <span class="text-[11px] text-slate-500">Hợp đồng duy nhất</span>
+                    </div>
+
+                    <!-- Tập Điểm -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-emerald-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-600 uppercase tracking-wider">Tập Điểm</span>
+                            <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-network-wired"></i>
+                            </div>
+                        </div>
+                        <h3 id="kpi-au-tap-diem" class="mt-2 text-2xl font-black text-emerald-600">0</h3>
+                        <span class="text-[11px] text-slate-500">Tập điểm duy nhất</span>
+                    </div>
+
+                    <!-- TSTC -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-violet-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-violet-600 uppercase tracking-wider">TSTC</span>
+                            <div class="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-tags"></i>
+                            </div>
+                        </div>
+                        <h3 id="kpi-au-tstc" class="mt-2 text-2xl font-black text-violet-600">0</h3>
+                        <span class="text-[11px] text-slate-500">Mã TSTC duy nhất</span>
+                    </div>
+
+                    <!-- Block -->
+                    <div class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 p-4 border-t-4 border-t-teal-500">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-teal-600 uppercase tracking-wider">Block</span>
+                            <div class="w-8 h-8 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center text-xs">
+                                <i class="fa-solid fa-building"></i>
+                            </div>
+                        </div>
+                        <h3 id="kpi-au-blocks" class="mt-2 text-2xl font-black text-teal-600">0</h3>
+                        <span class="text-[11px] text-slate-500">Block khu vực</span>
+                    </div>
+                </section>
+
+                <!-- 3. Bảng Dữ Liệu Tra Cứu AU -->
+                <section class="bg-white rounded-xl shadow-mui-card border border-slate-200/80 overflow-hidden">
+                    <div class="p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                                <i class="fa-solid fa-table-list text-blue-600"></i>
+                                <span>Kết Quả Tra Cứu AU</span>
+                            </h2>
+                            <span id="table-au-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">0 bản ghi</span>
+                        </div>
+
+                        <!-- Số bản ghi mỗi trang & Nút Xóa toàn bộ -->
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center gap-1.5 text-xs text-slate-600">
+                                <span>Hiển thị:</span>
+                                <select id="au-page-size" onchange="changeAuPageSize()" class="px-2 py-1 rounded border border-slate-300 text-xs font-bold bg-white outline-none">
+                                    <option value="15">15 dòng</option>
+                                    <option value="30" selected>30 dòng</option>
+                                    <option value="50">50 dòng</option>
+                                    <option value="100">100 dòng</option>
+                                    <option value="200">200 dòng</option>
+                                </select>
+                            </div>
+                            <button type="button" onclick="confirmClearAllAu()" class="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded border border-red-200 font-semibold transition-colors flex items-center gap-1" title="Xóa toàn bộ dữ liệu AU (Yêu cầu mật khẩu)">
+                                <i class="fa-regular fa-trash-can"></i> Xóa Tất Cả
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Bảng dữ liệu: STT, Số hợp đồng, Tập điểm, TSTC, Đường, KTV* T10, Block (Ẩn ID bảo mật) -->
+                    <div class="table-container overflow-x-auto">
+                        <table class="data-table w-full text-left border-collapse">
+                            <thead>
+                                <tr class="text-[11px] font-bold uppercase tracking-wider text-slate-600 border-b border-slate-200 bg-slate-50/80">
+                                    <th class="py-2.5 px-3 w-14 text-center">STT</th>
+                                    <th class="py-2.5 px-3 min-w-[150px]">Số hợp đồng</th>
+                                    <th class="py-2.5 px-3 min-w-[140px]">Tập điểm</th>
+                                    <th class="py-2.5 px-3 min-w-[130px]">TSTC</th>
+                                    <th class="py-2.5 px-3 min-w-[180px]">Đường</th>
+                                    <th class="py-2.5 px-3 min-w-[140px]">KTV* T10</th>
+                                    <th class="py-2.5 px-3 min-w-[110px]">Block</th>
+                                    <th class="py-2.5 px-3 text-center w-28">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-au-body" class="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+                                <tr>
+                                    <td colspan="8" class="text-center py-8 text-slate-400">
+                                        <i class="fa-solid fa-spinner fa-spin text-xl text-blue-500 mb-2"></i>
+                                        <div>Đang tải dữ liệu AU...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Phân trang -->
+                    <div class="p-3 border-t border-slate-200 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
+                        <div class="text-xs font-semibold text-slate-500" id="au-pagination-info">Hiển thị 0 - 0 của 0</div>
+                        <div class="flex items-center gap-1.5">
+                            <button id="btn-au-prev" onclick="changeAuPage(-1)" class="px-3 py-1 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                <i class="fa-solid fa-chevron-left mr-1"></i> Trước
+                            </button>
+                            <span id="current-au-page" class="px-3 py-1 text-xs font-black text-blue-600 bg-blue-50 border border-blue-200 rounded">1</span>
+                            <span class="text-xs font-medium text-slate-400">/ <span id="total-au-pages">1</span></span>
+                            <button id="btn-au-next" onclick="changeAuPage(1)" class="px-3 py-1 rounded border border-slate-300 text-xs font-semibold bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                                Sau <i class="fa-solid fa-chevron-right ml-1"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ========================================================= -->
             <!-- VIEW 5: DANH SÁCH LOGIN (Admin)                          -->
             <!-- ========================================================= -->
             {% if is_admin %}
@@ -1195,9 +1469,274 @@
         </div>
     </div>
 
+    <!-- ================================================================ -->
+    <!-- ================================================================ -->
+    <!-- MODAL: IMPORT EXCEL / CSV AU                                    -->
+    <!-- ================================================================ -->
+    <div id="au-import-modal" class="modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm items-center justify-center z-50 p-4">
+        <div class="modal-dialog bg-white rounded-2xl shadow-mui-dialog border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            <!-- Header Modal -->
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center text-sm shadow-sm">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </span>
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-900">Import Dữ Liệu Tra Cứu AU</h3>
+                        <p class="text-[11px] text-slate-500 font-medium">Nạp danh sách AU từ file Excel hoặc CSV vào hệ thống</p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeAuImportModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <form id="form-au-import" onsubmit="handleAuImportSubmit(event)" class="p-6 space-y-4">
+                <!-- BƯỚC 1: TẢI FILE MẪU NẾU CHƯA CÓ -->
+                <div class="p-3.5 bg-emerald-50/80 rounded-xl border border-emerald-200/90 flex items-center justify-between gap-3">
+                    <div class="flex items-start gap-2.5">
+                        <i class="fa-solid fa-file-circle-check text-emerald-600 text-base mt-0.5"></i>
+                        <div>
+                            <div class="text-xs font-bold text-emerald-900">Bước 1: Tải File Template Mẫu</div>
+                            <div class="text-[11px] text-emerald-700 leading-relaxed">
+                                Chuẩn 6 cột: <strong>Số hợp đồng, Tập điểm, TSTC, Đường, KTV* T10, Block</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/api/au/template" class="shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5" title="Tải file template Excel chuẩn">
+                        <i class="fa-solid fa-download"></i> Tải Mẫu
+                    </a>
+                </div>
+
+                <!-- BƯỚC 2: CHỌN FILE ĐỂ IMPORT (Dùng Native HTML Label để 100% click là mở) -->
+                <div class="space-y-1.5">
+                    <label class="block text-xs font-bold text-slate-800">
+                        Bước 2: Chọn file Excel hoặc CSV đã điền dữ liệu
+                    </label>
+                    <input type="file" id="au-file-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleAuFileSelected(event)">
+                    
+                    <label for="au-file-input" id="au-drop-zone" class="block border-2 border-dashed border-blue-400 hover:border-blue-600 rounded-xl p-5 text-center bg-blue-50/40 hover:bg-blue-50/80 transition-all cursor-pointer space-y-2.5">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto text-xl shadow-sm">
+                            <i class="fa-solid fa-file-excel"></i>
+                        </div>
+                        <div>
+                            <span class="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm pointer-events-none">
+                                <i class="fa-solid fa-folder-open"></i> Bấm Vào Đây Để Chọn File Từ Máy Tính
+                            </span>
+                        </div>
+                        <div class="text-xs font-semibold text-slate-700" id="au-file-name-label">
+                            hoặc kéo thả file Excel (.xlsx, .xls) hoặc .csv vào đây
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Cảnh báo khi chưa chọn file -->
+                <div id="au-file-alert" class="hidden text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 p-2.5 rounded-lg flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm"></i>
+                    <span>Vui lòng bấm chọn file Excel hoặc CSV trước khi nhấn Bắt Đầu Import!</span>
+                </div>
+
+                <!-- CHẾ ĐỘ NẠP DỮ LIỆU -->
+                <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2">
+                    <div class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <i class="fa-solid fa-gear text-blue-600 text-[11px]"></i> Chế độ nạp dữ liệu:
+                    </div>
+                    <label class="flex items-start gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                        <input type="radio" name="au_import_mode" value="replace" checked class="mt-0.5 text-blue-600 focus:ring-blue-500">
+                        <div>
+                            <strong class="text-blue-700"><i class="fa-solid fa-trash-can text-blue-500 mr-1"></i> Xóa dữ liệu cũ và nạp mới (Mặc định)</strong>
+                            <div class="text-[11px] text-slate-500">Xóa sạch toàn bộ dữ liệu AU cũ và nạp file mới này vào hệ thống.</div>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+                        <input type="radio" name="au_import_mode" value="append" class="mt-0.5 text-slate-600 focus:ring-slate-500">
+                        <div>
+                            <strong>Nạp thêm nối tiếp</strong>
+                            <div class="text-[11px] text-slate-500">Giữ nguyên dữ liệu cũ, chỉ chèn thêm các bản ghi mới từ file.</div>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="au-import-status" class="hidden text-xs font-semibold p-2.5 rounded-lg"></div>
+
+                <div class="pt-3 border-t border-slate-200 flex justify-end gap-2.5">
+                    <button type="button" onclick="closeAuImportModal()" class="px-4 py-2 text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Hủy Bỏ</button>
+                    <button type="submit" id="btn-submit-au-import" class="px-6 py-2.5 text-xs font-bold uppercase bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm hover:shadow transition-all flex items-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Bắt Đầu Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- MODAL: THÊM / SỬA BẢN GHI AU                                     -->
+    <!-- ================================================================ -->
+    <div id="au-record-modal" class="modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm items-center justify-center z-50 p-4">
+        <div class="modal-dialog bg-white rounded-2xl shadow-mui-dialog border border-slate-200 max-w-md w-full overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+                <h3 id="au-modal-title" class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-pen-to-square text-blue-600"></i> Thêm Bản Ghi AU Mới
+                </h3>
+                <button type="button" onclick="closeAuRecordModal()" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <form id="form-au-record" onsubmit="handleAuRecordSubmit(event)" class="p-6 space-y-3.5">
+                <input type="hidden" id="au-edit-id" value="">
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Số Hợp Đồng: <span class="text-red-500">*</span></label>
+                    <input type="text" id="au-input-so-hop-dong" required placeholder="vd: SGN01-HD12345"
+                           class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Tập Điểm:</label>
+                        <input type="text" id="au-input-tap-diem" placeholder="vd: TD-Q1-001"
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">TSTC:</label>
+                        <input type="text" id="au-input-tstc" placeholder="vd: TSTC-8899"
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Đường:</label>
+                    <input type="text" id="au-input-duong" placeholder="vd: Nguyễn Thị Minh Khai"
+                           class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">KTV* T10:</label>
+                        <input type="text" id="au-input-ktv" placeholder="vd: Nguyễn Văn A"
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Block:</label>
+                        <input type="text" id="au-input-block" placeholder="vd: Block 1"
+                               class="w-full px-3 py-2 text-xs font-medium rounded-lg border border-slate-300 focus:border-blue-500 focus:outline-none bg-slate-50 focus:bg-white transition-all">
+                    </div>
+                </div>
+
+                <div class="pt-3 border-t border-slate-200 flex justify-end gap-2">
+                    <button type="button" onclick="closeAuRecordModal()" class="px-4 py-2 text-xs font-bold uppercase text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Hủy</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-bold uppercase bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors">
+                        Lưu Lại
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Dashboard Controller -->
     <script>window.IS_ADMIN = {{ 'true' if is_admin else 'false' }};</script>
-    <script src="/static/js/dashboard.js"></script>
+    <script src="/static/js/dashboard.js?v={{ range(100000, 9999999) | random }}"></script>
+
+    <!-- INLINE SAFE CONTROLLER FOR AU MODALS & DIRECT IMPORT -->
+    <script>
+    // Đảm bảo mở/đóng modal AU hoạt động 100% không bị ảnh hưởng bởi cache
+    window.openAuImportModal = function() {
+        var m = document.getElementById('au-import-modal');
+        if (m) {
+            m.style.setProperty('display', 'flex', 'important');
+            m.classList.add('show');
+            m.classList.remove('hidden');
+        }
+        var alertEl = document.getElementById('au-file-alert');
+        if (alertEl) alertEl.classList.add('hidden');
+    };
+
+    window.closeAuImportModal = function() {
+        var m = document.getElementById('au-import-modal');
+        if (m) {
+            m.style.setProperty('display', 'none', 'important');
+            m.classList.remove('show');
+        }
+    };
+
+    window.openAuAddModal = function() {
+        var m = document.getElementById('au-record-modal');
+        var title = document.getElementById('au-modal-title');
+        var editId = document.getElementById('au-edit-id');
+        if (title) title.innerHTML = '<i class="fa-solid fa-plus text-blue-600"></i> Thêm Bản Ghi AU Mới';
+        if (editId) editId.value = '';
+        ['au-input-so-hop-dong', 'au-input-tap-diem', 'au-input-tstc', 'au-input-duong', 'au-input-ktv', 'au-input-block'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        if (m) {
+            m.style.setProperty('display', 'flex', 'important');
+            m.classList.add('show');
+            m.classList.remove('hidden');
+        }
+    };
+
+    window.closeAuRecordModal = function() {
+        var m = document.getElementById('au-record-modal');
+        if (m) {
+            m.style.setProperty('display', 'none', 'important');
+            m.classList.remove('show');
+        }
+    };
+
+    // Xử lý nạp trực tiếp ngay khi bấm nút Import File AU
+    window.handleAuDirectUpload = async function(event) {
+        var files = event.target.files;
+        if (!files || files.length === 0) return;
+        var file = files[0];
+        event.target.value = ''; // Reset để có thể chọn lại file cùng tên
+
+        var label = document.getElementById('btn-import-au-label');
+        if (label) label.textContent = 'Đang Nạp File...';
+
+        if (typeof showToast === 'function') {
+            showToast('Đang tải lên: ' + file.name + ' (Tự động xóa dữ liệu cũ và nạp mới)...', 'info');
+        }
+
+        var formData = new FormData();
+        formData.append('file', file);
+        formData.append('mode', 'replace'); // Tự động xóa cũ nạp mới
+
+        try {
+            var res = await fetch('/api/au/import', {
+                method: 'POST',
+                body: formData
+            });
+            var data = await res.json();
+            if (data.success) {
+                if (typeof showToast === 'function') {
+                    showToast(data.message || 'Import thành công ' + data.count + ' bản ghi AU!', 'success');
+                } else {
+                    alert(data.message || 'Import thành công ' + data.count + ' bản ghi AU!');
+                }
+                if (typeof loadAuStats === 'function') loadAuStats();
+                if (typeof loadAuFilters === 'function') loadAuFilters();
+                if (typeof loadAuTable === 'function') loadAuTable(1);
+            } else {
+                if (typeof showToast === 'function') {
+                    showToast(data.error || 'Lỗi khi import file', 'error');
+                } else {
+                    alert(data.error || 'Lỗi khi import file');
+                }
+            }
+        } catch (err) {
+            console.error('Import error:', err);
+            if (typeof showToast === 'function') {
+                showToast('Lỗi kết nối khi nạp file AU', 'error');
+            } else {
+                alert('Lỗi kết nối khi nạp file AU');
+            }
+        } finally {
+            if (label) label.textContent = 'Import File AU';
+        }
+    };
+    </script>
 </body>
 
 </html>

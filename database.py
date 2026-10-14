@@ -156,7 +156,8 @@ def get_connection():
         user=SUPABASE_APP_DB_USER,
         password=SUPABASE_APP_DB_PASSWORD,
         dbname=SUPABASE_APP_DB_NAME,
-        connect_timeout=15
+        connect_timeout=15,
+        prepare_threshold=None
     )
     return PgConnectionWrapper(raw_conn)
 
@@ -307,6 +308,38 @@ def init_db():
             role TEXT DEFAULT 'USER'
         );
         """)
+
+        # Bảng au_records (Tra Cứu AU)
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS au_records (
+            id BIGINT PRIMARY KEY,
+            so_hop_dong TEXT DEFAULT '',
+            tap_diem TEXT DEFAULT '',
+            tstc TEXT DEFAULT '',
+            duong TEXT DEFAULT '',
+            ktv_t10 TEXT DEFAULT '',
+            block TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_au_so_hop_dong ON au_records(so_hop_dong);
+        CREATE INDEX IF NOT EXISTS idx_au_tap_diem ON au_records(tap_diem);
+        CREATE INDEX IF NOT EXISTS idx_au_tstc ON au_records(tstc);
+        CREATE INDEX IF NOT EXISTS idx_au_block ON au_records(block);
+        """)
+
+        try:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
+            cur.execute("""
+            CREATE INDEX IF NOT EXISTS idx_au_trgm_so_hop_dong ON au_records USING gin (so_hop_dong gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_au_trgm_tap_diem ON au_records USING gin (tap_diem gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_au_trgm_tstc ON au_records USING gin (tstc gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_au_trgm_duong ON au_records USING gin (duong gin_trgm_ops);
+            CREATE INDEX IF NOT EXISTS idx_au_trgm_ktv ON au_records USING gin (ktv_t10 gin_trgm_ops);
+            """)
+        except Exception as trgm_err:
+            print(f"Warning: Could not create pg_trgm indexes for au_records: {trgm_err}")
+
     conn.commit()
     conn.close()
 
@@ -539,3 +572,276 @@ def set_setting(key, value):
         conn.commit()
     finally:
         conn.close()
+
+
+# =========================================================================
+# TRA CỨU AU: STATS, LOOKUP, IMPORT & CRUD
+# =========================================================================
+import time
+
+
+def get_au_stats():
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT 
+                COUNT(*) AS total,
+                COUNT(DISTINCT NULLIF(so_hop_dong, '')) AS contracts,
+                COUNT(DISTINCT NULLIF(tap_diem, '')) AS tap_diems,
+                COUNT(DISTINCT NULLIF(tstc, '')) AS tstcs,
+                COUNT(DISTINCT NULLIF(block, '')) AS blocks
+            FROM au_records
+        """)
+        row = cur.fetchone()
+        return {
+            "total": row['total'] if row else 0,
+            "contracts": row['contracts'] if row else 0,
+            "tap_diems": row['tap_diems'] if row else 0,
+            "tstcs": row['tstcs'] if row else 0,
+            "blocks": row['blocks'] if row else 0,
+        }
+    except Exception as e:
+        print(f"Error in get_au_stats: {e}")
+        return {"total": 0, "contracts": 0, "tap_diems": 0, "tstcs": 0, "blocks": 0}
+    finally:
+        conn.close()
+
+
+def get_au_max_id(cur=None):
+    if cur:
+        cur.execute("SELECT COALESCE(MAX(id), 0) FROM au_records")
+        res = cur.fetchone()
+        return res[0] if res else 0
+    conn = get_connection()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT COALESCE(MAX(id), 0) FROM au_records")
+        res = c.fetchone()
+        return res[0] if res else 0
+    finally:
+        conn.close()
+
+
+def get_au_records(search="", so_hop_dong="", tap_diem="", tstc="", duong="", ktv="", block="", page=1, limit=30):
+    start_t = time.perf_counter()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        conditions = []
+        params = []
+
+        # 1. Tìm kiếm tổng hợp thông minh (Số hợp đồng / Tập điểm / TSTC / Đường / KTV)
+        if search:
+            kw = f"%{search.strip()}%"
+            conditions.append("(so_hop_dong ILIKE ? OR tap_diem ILIKE ? OR tstc ILIKE ? OR duong ILIKE ? OR ktv_t10 ILIKE ?)")
+            params.extend([kw, kw, kw, kw, kw])
+
+        # 2. Bộ lọc trường chi tiết theo yêu cầu
+        if so_hop_dong:
+            conditions.append("so_hop_dong ILIKE ?")
+            params.append(f"%{so_hop_dong.strip()}%")
+        if tap_diem:
+            conditions.append("tap_diem ILIKE ?")
+            params.append(f"%{tap_diem.strip()}%")
+        if tstc:
+            conditions.append("tstc ILIKE ?")
+            params.append(f"%{tstc.strip()}%")
+        if duong:
+            conditions.append("duong ILIKE ?")
+            params.append(f"%{duong.strip()}%")
+        if ktv:
+            conditions.append("ktv_t10 ILIKE ?")
+            params.append(f"%{ktv.strip()}%")
+        if block:
+            conditions.append("block ILIKE ?")
+            params.append(f"%{block.strip()}%")
+
+        where_sql = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+        # Tổng số kết quả phù hợp
+        cur.execute(f"SELECT COUNT(*) FROM au_records {where_sql}", params)
+        count_row = cur.fetchone()
+        total = count_row[0] if count_row else 0
+
+        # Lấy dữ liệu phân trang
+        offset = max(0, (page - 1) * limit)
+        cur.execute(f"""
+            SELECT id, so_hop_dong, tap_diem, tstc, duong, ktv_t10, block, created_at, updated_at
+            FROM au_records
+            {where_sql}
+            ORDER BY id ASC
+            LIMIT ? OFFSET ?
+        """, params + [limit, offset])
+        rows = [dict(r) for r in cur.fetchall()]
+
+        elapsed_ms = round((time.perf_counter() - start_t) * 1000, 2)
+        total_pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "records": rows,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages,
+            "query_time_ms": elapsed_ms
+        }
+    except Exception as e:
+        print(f"Error in get_au_records: {e}")
+        return {"records": [], "total": 0, "page": page, "limit": limit, "total_pages": 0, "query_time_ms": 0, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def import_au_records(records, mode='append'):
+    """
+    Import danh sách AU theo template:
+    ID của bản ghi mới tự động là MAX+1 liên tiếp
+    """
+    if not records:
+        return {"success": True, "count": 0, "message": "Không có dữ liệu để import"}
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        if mode == 'replace':
+            cur.execute("DELETE FROM au_records")
+            current_max_id = 0
+        else:
+            cur.execute("SELECT COALESCE(MAX(id), 0) FROM au_records")
+            r = cur.fetchone()
+            current_max_id = r[0] if r else 0
+
+        insert_rows = []
+        for rec in records:
+            current_max_id += 1
+            insert_rows.append((
+                current_max_id,
+                str(rec.get('so_hop_dong', '') or '').strip(),
+                str(rec.get('tap_diem', '') or '').strip(),
+                str(rec.get('tstc', '') or '').strip(),
+                str(rec.get('duong', '') or '').strip(),
+                str(rec.get('ktv_t10', '') or '').strip(),
+                str(rec.get('block', '') or '').strip(),
+            ))
+
+        query = """
+        INSERT INTO au_records (
+            id, so_hop_dong, tap_diem, tstc, duong, ktv_t10, block
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (id) DO UPDATE SET
+            so_hop_dong = excluded.so_hop_dong,
+            tap_diem = excluded.tap_diem,
+            tstc = excluded.tstc,
+            duong = excluded.duong,
+            ktv_t10 = excluded.ktv_t10,
+            block = excluded.block,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        cur.executemany(query, insert_rows)
+        conn.commit()
+        return {"success": True, "count": len(insert_rows), "max_id": current_max_id}
+    except Exception as e:
+        conn.rollback()
+        print(f"Error importing au_records: {e}")
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def add_au_record(data):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM au_records")
+        new_id = cur.fetchone()[0]
+        cur.execute("""
+            INSERT INTO au_records (id, so_hop_dong, tap_diem, tstc, duong, ktv_t10, block)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            new_id,
+            str(data.get('so_hop_dong', '') or '').strip(),
+            str(data.get('tap_diem', '') or '').strip(),
+            str(data.get('tstc', '') or '').strip(),
+            str(data.get('duong', '') or '').strip(),
+            str(data.get('ktv_t10', '') or '').strip(),
+            str(data.get('block', '') or '').strip()
+        ))
+        conn.commit()
+        return {"success": True, "id": new_id}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def update_au_record(au_id, data):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE au_records
+            SET so_hop_dong = ?, tap_diem = ?, tstc = ?, duong = ?, ktv_t10 = ?, block = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (
+            str(data.get('so_hop_dong', '') or '').strip(),
+            str(data.get('tap_diem', '') or '').strip(),
+            str(data.get('tstc', '') or '').strip(),
+            str(data.get('duong', '') or '').strip(),
+            str(data.get('ktv_t10', '') or '').strip(),
+            str(data.get('block', '') or '').strip(),
+            au_id
+        ))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def delete_au_record(au_id):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM au_records WHERE id = ?", (au_id,))
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def clear_all_au_records():
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM au_records")
+        conn.commit()
+        return {"success": True}
+    except Exception as e:
+        conn.rollback()
+        return {"success": False, "error": str(e)}
+    finally:
+        conn.close()
+
+
+def get_au_filters():
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT DISTINCT block FROM au_records WHERE block IS NOT NULL AND block != '' ORDER BY block")
+        blocks = [r[0] for r in cur.fetchall()]
+        cur.execute("SELECT DISTINCT ktv_t10 FROM au_records WHERE ktv_t10 IS NOT NULL AND ktv_t10 != '' ORDER BY ktv_t10")
+        ktvs = [r[0] for r in cur.fetchall()]
+        return {"blocks": blocks, "ktvs": ktvs}
+    except Exception as e:
+        print(f"Error in get_au_filters: {e}")
+        return {"blocks": [], "ktvs": []}
+    finally:
+        conn.close()
+

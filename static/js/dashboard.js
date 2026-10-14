@@ -47,15 +47,20 @@ document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
     // Default show CEM tag
     switchTag('cem');
-    // Periodic UI refresh every 60s to reflect background auto-sync (both CEM & Giục)
+    // Periodic UI refresh every 60s to reflect background auto-sync (both CEM, Giục & AU)
     setInterval(() => {
         loadStats();
         loadGiucStats();
         loadCllStats();
+        loadAuStats();
         if (currentTag === 'cem') {
             loadTable(currentPage);
         } else if (currentTag === 'giuc') {
             loadGiucTable(currentGiucPage);
+        } else if (currentTag === 'au') {
+            loadAuTable(currentAuPage);
+        } else if (currentTag === 'nhansu') {
+            loadNhanSuTable(currentNsPage);
         } else {
             loadCllTable(currentCllPage);
         }
@@ -68,22 +73,25 @@ async function initDashboard() {
         loadStats(),
         loadTable(1),
         loadGiucStats(),
-        loadCllStats()
+        loadCllStats(),
+        loadAuStats()
     ]);
 }
 
 // -------------------------------------------------------------
-// Switch Tag (CEM vs Giục Tiến Độ)
+// Switch Tag (CEM vs Giục Tiến Độ vs CLL vs AU vs HR)
 // -------------------------------------------------------------
 function switchTag(tag) {
     currentTag = tag;
     const viewCem    = document.getElementById('view-cem');
     const viewGiuc   = document.getElementById('view-giuc');
     const viewCll    = document.getElementById('view-cll');
+    const viewAu     = document.getElementById('view-au');
     const viewNhanSu = document.getElementById('view-nhansu');
     const navCem     = document.getElementById('nav-item-cem');
     const navGiuc    = document.getElementById('nav-item-giuc');
     const navCll     = document.getElementById('nav-item-cll');
+    const navAu      = document.getElementById('nav-item-au');
     const navNhanSu  = document.getElementById('nav-item-nhansu');
     const tagPill    = document.getElementById('topbar-tag-name');
     const topTitle   = document.getElementById('topbar-page-title');
@@ -92,8 +100,8 @@ function switchTag(tag) {
     const navLogins  = document.getElementById('nav-item-logins');
 
     // Hide all views & deactivate all nav items
-    [viewCem, viewGiuc, viewCll, viewNhanSu, viewLogins].forEach(v => v && v.classList.remove('active'));
-    [navCem, navGiuc, navCll, navNhanSu, navLogins].forEach(n => n && n.classList.remove('active'));
+    [viewCem, viewGiuc, viewCll, viewAu, viewNhanSu, viewLogins].forEach(v => v && v.classList.remove('active'));
+    [navCem, navGiuc, navCll, navAu, navNhanSu, navLogins].forEach(n => n && n.classList.remove('active'));
 
     if (tag === 'cem') {
         if (viewCem) viewCem.classList.add('active');
@@ -107,6 +115,14 @@ function switchTag(tag) {
         if (topTitle) topTitle.textContent = 'Quản Lý Yêu Cầu Giục Tiến Độ Từ Khách Hàng';
         loadGiucStats();
         loadGiucTable(1);
+    } else if (tag === 'au') {
+        if (viewAu) viewAu.classList.add('active');
+        if (navAu) navAu.classList.add('active');
+        if (tagPill) tagPill.textContent = 'TRA CỨU AU';
+        if (topTitle) topTitle.textContent = 'Tra Cứu Thông Tin Hợp Đồng / Tập Điểm / TSTC';
+        loadAuStats();
+        loadAuFilters();
+        loadAuTable(1);
     } else if (tag === 'nhansu') {
         if (viewNhanSu) viewNhanSu.classList.add('active');
         if (navNhanSu) navNhanSu.classList.add('active');
@@ -1832,11 +1848,656 @@ async function sendNsMail() {
     }
 }
 
-// Close NS modal khi click backdrop
+// Close modals khi click backdrop
 document.addEventListener('click', function(e) {
     const modal = document.getElementById('ns-mail-modal');
     if (modal && e.target === modal) closeNsSendMailModal();
     const detailModal = document.getElementById('detail-modal');
     if (detailModal && e.target === detailModal) closeDetailModal();
+    const auImportModal = document.getElementById('au-import-modal');
+    if (auImportModal && e.target === auImportModal) closeAuImportModal();
+    const auRecordModal = document.getElementById('au-record-modal');
+    if (auRecordModal && e.target === auRecordModal) closeAuRecordModal();
 });
+
+
+// =========================================================================
+// TRA CỨU AU: LOGIC, TÌM KIẾM NHANH, IMPORT & CRUD
+// =========================================================================
+let currentAuPage = 1;
+let currentAuLimit = 30;
+let auSearchDebounceTimer = null;
+let currentAuData = [];
+let selectedAuFile = null;
+
+// Tải số liệu thống kê AU
+async function loadAuStats() {
+    try {
+        const res = await fetch('/api/au/stats');
+        const data = await res.json();
+        if (data.success && data.stats) {
+            const s = data.stats;
+            const elTotal = document.getElementById('kpi-au-total');
+            const elContracts = document.getElementById('kpi-au-contracts');
+            const elTapDiem = document.getElementById('kpi-au-tap-diem');
+            const elTstc = document.getElementById('kpi-au-tstc');
+            const elBlocks = document.getElementById('kpi-au-blocks');
+            const badgeCnt = document.getElementById('badge-au-cnt');
+
+            if (elTotal) elTotal.textContent = Number(s.total || 0).toLocaleString();
+            if (elContracts) elContracts.textContent = Number(s.contracts || 0).toLocaleString();
+            if (elTapDiem) elTapDiem.textContent = Number(s.tap_diems || 0).toLocaleString();
+            if (elTstc) elTstc.textContent = Number(s.tstcs || 0).toLocaleString();
+            if (elBlocks) elBlocks.textContent = Number(s.blocks || 0).toLocaleString();
+            if (badgeCnt) badgeCnt.textContent = Number(s.total || 0).toLocaleString();
+        }
+    } catch (e) {
+        console.error('Lỗi tải thống kê AU:', e);
+    }
+}
+
+// Tải danh sách Block & KTV vào bộ lọc
+async function loadAuFilters() {
+    try {
+        const res = await fetch('/api/au/filters');
+        const data = await res.json();
+        if (data.success) {
+            const blockSelect = document.getElementById('filter-au-block');
+            if (blockSelect) {
+                const curVal = blockSelect.value;
+                blockSelect.innerHTML = '<option value="">Tất cả Block</option>';
+                (data.blocks || []).forEach(b => {
+                    const opt = document.createElement('option');
+                    opt.value = b;
+                    opt.textContent = b;
+                    if (b === curVal) opt.selected = true;
+                    blockSelect.appendChild(opt);
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Lỗi tải bộ lọc AU:', e);
+    }
+}
+
+// Lấy tham số truy vấn tìm kiếm hiện tại
+function getAuQueryParams(page = 1) {
+    const smartSearch = (document.getElementById('filter-au-smart-search')?.value || '').trim();
+    const soHopDong = (document.getElementById('filter-au-so-hop-dong')?.value || '').trim();
+    const tapDiem = (document.getElementById('filter-au-tap-diem')?.value || '').trim();
+    const tstc = (document.getElementById('filter-au-tstc')?.value || '').trim();
+    const duong = (document.getElementById('filter-au-duong')?.value || '').trim();
+    const ktv = (document.getElementById('filter-au-ktv')?.value || '').trim();
+    const block = (document.getElementById('filter-au-block')?.value || '').trim();
+
+    const params = new URLSearchParams();
+    if (smartSearch) params.set('search', smartSearch);
+    if (soHopDong) params.set('so_hop_dong', soHopDong);
+    if (tapDiem) params.set('tap_diem', tapDiem);
+    if (tstc) params.set('tstc', tstc);
+    if (duong) params.set('duong', duong);
+    if (ktv) params.set('ktv', ktv);
+    if (block) params.set('block', block);
+    params.set('page', page);
+    params.set('limit', currentAuLimit);
+
+    return params;
+}
+
+// Tải bảng dữ liệu tra cứu AU
+async function loadAuTable(page = 1) {
+    currentAuPage = page;
+    const tbody = document.getElementById('table-au-body');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="8" class="text-center py-8 text-slate-400">
+                <i class="fa-solid fa-spinner fa-spin text-xl text-blue-500 mb-2"></i>
+                <div>Đang tra cứu dữ liệu AU...</div>
+            </td>
+        </tr>
+    `;
+
+    try {
+        const params = getAuQueryParams(page);
+        const res = await fetch(`/api/au?${params.toString()}`);
+        const data = await res.json();
+
+        if (!data.success) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-6 text-red-500 font-semibold">
+                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> ${data.error || 'Lỗi tải dữ liệu'}
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Cập nhật thời gian truy vấn
+        const elTime = document.getElementById('au-query-time');
+        if (elTime) elTime.textContent = `${data.query_time_ms || 0} ms`;
+
+        // Cập nhật số lượng
+        const tableCnt = document.getElementById('table-au-count');
+        if (tableCnt) tableCnt.textContent = `${Number(data.total || 0).toLocaleString()} bản ghi`;
+
+        currentAuData = data.records || [];
+        renderAuTable(data);
+
+    } catch (e) {
+        console.error('Lỗi khi tra cứu AU:', e);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-6 text-red-500 font-semibold">
+                    Lỗi kết nối máy chủ khi tra cứu AU
+                </td>
+            </tr>
+        `;
+    }
+}
+
+// Render dữ liệu lên bảng
+function renderAuTable(data) {
+    const tbody = document.getElementById('table-au-body');
+    const records = data.records || [];
+    const total = data.total || 0;
+    const page = data.page || 1;
+    const limit = data.limit || currentAuLimit;
+    const totalPages = data.total_pages || 1;
+
+    // Phân trang info
+    const info = document.getElementById('au-pagination-info');
+    const fromIdx = total > 0 ? (page - 1) * limit + 1 : 0;
+    const toIdx = Math.min(page * limit, total);
+    if (info) info.textContent = `Hiển thị ${fromIdx} - ${toIdx} của ${total.toLocaleString()}`;
+
+    const curPageEl = document.getElementById('current-au-page');
+    const totalPagesEl = document.getElementById('total-au-pages');
+    const btnPrev = document.getElementById('btn-au-prev');
+    const btnNext = document.getElementById('btn-au-next');
+
+    if (curPageEl) curPageEl.textContent = page;
+    if (totalPagesEl) totalPagesEl.textContent = totalPages;
+    if (btnPrev) btnPrev.disabled = (page <= 1);
+    if (btnNext) btnNext.disabled = (page >= totalPages);
+
+    if (records.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-10 text-slate-400">
+                    <i class="fa-solid fa-folder-open text-2xl mb-2 text-slate-300"></i>
+                    <div class="text-xs font-semibold">Không tìm thấy bản ghi AU nào phù hợp</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Hãy thử nhập từ khóa khác hoặc bấm "Import Excel/CSV" để nạp dữ liệu</div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    const smartKw = (document.getElementById('filter-au-smart-search')?.value || '').trim();
+
+    tbody.innerHTML = records.map((r, idx) => {
+        const id = r.id;
+        const stt = (currentAuPage - 1) * currentAuLimit + idx + 1;
+        const shd = escapeHtml(r.so_hop_dong || '');
+        const td = escapeHtml(r.tap_diem || '');
+        const tstc = escapeHtml(r.tstc || '');
+        const duong = escapeHtml(r.duong || '');
+        const ktv = escapeHtml(r.ktv_t10 || '');
+        const block = escapeHtml(r.block || '');
+
+        return `
+            <tr class="hover:bg-blue-50/40 transition-colors">
+                <td class="py-2.5 px-3 text-center font-bold text-slate-500">${stt}</td>
+                <td class="py-2.5 px-3">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-blue-700 tracking-tight font-mono">${highlightKeyword(shd, smartKw)}</span>
+                        ${shd ? `<button onclick="copyToClipboard('${shd}', 'Số HĐ')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Sao chép"><i class="fa-regular fa-copy text-[11px]"></i></button>` : ''}
+                    </div>
+                </td>
+                <td class="py-2.5 px-3">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-semibold text-slate-800">${highlightKeyword(td, smartKw)}</span>
+                        ${td ? `<button onclick="copyToClipboard('${td}', 'Tập điểm')" class="text-slate-400 hover:text-blue-600 transition-colors" title="Sao chép"><i class="fa-regular fa-copy text-[11px]"></i></button>` : ''}
+                    </div>
+                </td>
+                <td class="py-2.5 px-3">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-mono font-bold text-violet-700 bg-violet-50 px-1.5 py-0.5 rounded border border-violet-200">${highlightKeyword(tstc, smartKw)}</span>
+                        ${tstc ? `<button onclick="copyToClipboard('${tstc}', 'TSTC')" class="text-slate-400 hover:text-violet-600 transition-colors" title="Sao chép"><i class="fa-regular fa-copy text-[11px]"></i></button>` : ''}
+                    </div>
+                </td>
+                <td class="py-2.5 px-3 text-slate-700 font-medium">${highlightKeyword(duong, smartKw)}</td>
+                <td class="py-2.5 px-3 text-slate-800 font-semibold">${highlightKeyword(ktv, smartKw)}</td>
+                <td class="py-2.5 px-3">
+                    ${block ? `<span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">${block}</span>` : '<span class="text-slate-300">-</span>'}
+                </td>
+                <td class="py-2.5 px-3 text-center whitespace-nowrap">
+                    <div class="flex items-center justify-center gap-1">
+                        <button onclick="openAuEditModal(${id})" class="p-1.5 rounded hover:bg-slate-100 text-slate-500 hover:text-blue-600 transition-colors" title="Chỉnh sửa bản ghi">
+                            <i class="fa-solid fa-pen-to-square text-xs"></i>
+                        </button>
+                        <button onclick="deleteAuRecord(${id})" class="p-1.5 rounded hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors" title="Xóa bản ghi (Yêu cầu mật khẩu)">
+                            <i class="fa-regular fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// Highlight từ khóa tìm kiếm
+function highlightKeyword(text, keyword) {
+    if (!text || !keyword) return text;
+    try {
+        const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return text.replace(regex, '<mark class="bg-yellow-200 text-slate-900 rounded px-0.5 font-bold">$1</mark>');
+    } catch (e) {
+        return text;
+    }
+}
+
+// Xử lý tìm kiếm thông minh nhanh (Debounced 150ms để gõ siêu mượt)
+function handleAuSmartSearch(e) {
+    const val = (e.target.value || '').trim();
+    const btnClear = document.getElementById('btn-clear-au-smart');
+    if (btnClear) {
+        if (val) btnClear.classList.remove('hidden');
+        else btnClear.classList.add('hidden');
+    }
+
+    clearTimeout(auSearchDebounceTimer);
+    auSearchDebounceTimer = setTimeout(() => {
+        loadAuTable(1);
+    }, 150);
+}
+
+function clearAuSmartSearch() {
+    const input = document.getElementById('filter-au-smart-search');
+    if (input) input.value = '';
+    const btnClear = document.getElementById('btn-clear-au-smart');
+    if (btnClear) btnClear.classList.add('hidden');
+    loadAuTable(1);
+}
+
+// Xử lý bộ lọc chi tiết
+function handleAuDetailFilter() {
+    clearTimeout(auSearchDebounceTimer);
+    auSearchDebounceTimer = setTimeout(() => {
+        loadAuTable(1);
+    }, 200);
+}
+
+// Đặt lại bộ lọc
+function resetAuFilters() {
+    const smart = document.getElementById('filter-au-smart-search');
+    const shd = document.getElementById('filter-au-so-hop-dong');
+    const td = document.getElementById('filter-au-tap-diem');
+    const tstc = document.getElementById('filter-au-tstc');
+    const duong = document.getElementById('filter-au-duong');
+    const ktv = document.getElementById('filter-au-ktv');
+    const block = document.getElementById('filter-au-block');
+    const btnClear = document.getElementById('btn-clear-au-smart');
+
+    if (smart) smart.value = '';
+    if (shd) shd.value = '';
+    if (td) td.value = '';
+    if (tstc) tstc.value = '';
+    if (duong) duong.value = '';
+    if (ktv) ktv.value = '';
+    if (block) block.value = '';
+    if (btnClear) btnClear.classList.add('hidden');
+
+    loadAuTable(1);
+}
+
+// Đổi trang
+function changeAuPage(delta) {
+    const newPage = currentAuPage + delta;
+    if (newPage >= 1) {
+        loadAuTable(newPage);
+    }
+}
+
+// Đổi số dòng / trang
+function changeAuPageSize() {
+    const sel = document.getElementById('au-page-size');
+    if (sel) {
+        currentAuLimit = parseInt(sel.value, 10) || 30;
+        loadAuTable(1);
+    }
+}
+
+// Export menu toggle
+function toggleAuExportMenu() {
+    const menu = document.getElementById('au-export-menu');
+    if (menu) menu.classList.toggle('hidden');
+}
+
+// Xuất file báo cáo AU
+function exportAuReport(format) {
+    toggleAuExportMenu();
+    const params = getAuQueryParams(1);
+    const url = format === 'csv' ? `/api/au/export/csv?${params.toString()}` : `/api/au/export/excel?${params.toString()}`;
+    window.location.href = url;
+}
+
+// Modal Import AU
+function openAuImportModal() {
+    selectedAuFile = null;
+    const modal = document.getElementById('au-import-modal');
+    const fileInput = document.getElementById('au-file-input');
+    const label = document.getElementById('au-file-name-label');
+    const status = document.getElementById('au-import-status');
+    if (fileInput) fileInput.value = '';
+    if (label) label.textContent = 'hoặc kéo thả file Excel (.xlsx, .xls) hoặc .csv vào đây';
+    if (status) {
+        status.className = 'hidden text-xs font-semibold p-2.5 rounded-lg';
+        status.textContent = '';
+    }
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
+}
+
+function closeAuImportModal() {
+    const modal = document.getElementById('au-import-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+function handleAuFileSelected(e) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+        selectedAuFile = files[0];
+        window.selectedAuFile = files[0];
+        const label = document.getElementById('au-file-name-label');
+        if (label) {
+            label.innerHTML = `<span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i> Đã chọn: ${escapeHtml(selectedAuFile.name)}</span> (${(selectedAuFile.size / 1024).toFixed(1)} KB)`;
+        }
+        const fileAlert = document.getElementById('au-file-alert');
+        if (fileAlert) fileAlert.classList.add('hidden');
+    }
+}
+
+// Submit Import
+async function handleAuImportSubmit(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const curFile = selectedAuFile || window.selectedAuFile;
+    if (!curFile) {
+        const fileAlert = document.getElementById('au-file-alert');
+        if (fileAlert) fileAlert.classList.remove('hidden');
+        showToast('Vui lòng chọn file Excel hoặc CSV trước!', 'error');
+        // Tự động mở hộp thoại chọn file cho người dùng
+        const input = document.getElementById('au-file-input');
+        if (input) input.click();
+        return;
+    }
+
+    const btnSubmit = document.getElementById('btn-submit-au-import');
+    const status = document.getElementById('au-import-status');
+    const mode = document.querySelector('input[name="au_import_mode"]:checked')?.value || 'replace';
+
+    if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang Import Dữ Liệu...';
+    }
+
+    if (status) {
+        status.className = 'text-xs font-semibold p-2.5 rounded-lg bg-blue-50 text-blue-700 flex items-center gap-2';
+        status.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Đang xử lý file dữ liệu...';
+        status.classList.remove('hidden');
+    }
+
+    const formData = new FormData();
+    formData.append('file', curFile);
+    formData.append('mode', mode);
+
+    try {
+        const res = await fetch('/api/au/import', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(data.message || `Import thành công ${data.count} bản ghi!`, 'success');
+            if (status) {
+                status.className = 'text-xs font-semibold p-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200';
+                status.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${data.message}`;
+            }
+            setTimeout(() => {
+                closeAuImportModal();
+                loadAuStats();
+                loadAuFilters();
+                loadAuTable(1);
+            }, 800);
+        } else {
+            if (status) {
+                status.className = 'text-xs font-semibold p-2.5 rounded-lg bg-red-50 text-red-700 border border-red-200';
+                status.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> ${data.error || 'Lỗi khi import file'}`;
+            }
+            showToast(data.error || 'Import thất bại', 'error');
+        }
+    } catch (err) {
+        console.error('Import AU error:', err);
+        if (status) {
+            status.className = 'text-xs font-semibold p-2.5 rounded-lg bg-red-50 text-red-700 border border-red-200';
+            status.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> Lỗi kết nối khi tải file lên';
+        }
+        showToast('Lỗi kết nối khi import', 'error');
+    } finally {
+        if (btnSubmit) {
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Bắt Đầu Import';
+        }
+    }
+}
+
+// Modal Thêm / Sửa AU Record
+function openAuAddModal() {
+    const modal = document.getElementById('au-record-modal');
+    const title = document.getElementById('au-modal-title');
+    const editId = document.getElementById('au-edit-id');
+    const inShd = document.getElementById('au-input-so-hop-dong');
+    const inTd = document.getElementById('au-input-tap-diem');
+    const inTstc = document.getElementById('au-input-tstc');
+    const inDuong = document.getElementById('au-input-duong');
+    const inKtv = document.getElementById('au-input-ktv');
+    const inBlock = document.getElementById('au-input-block');
+
+    if (title) title.innerHTML = '<i class="fa-solid fa-plus text-blue-600"></i> Thêm Bản Ghi AU Mới';
+    if (editId) editId.value = '';
+    if (inShd) inShd.value = '';
+    if (inTd) inTd.value = '';
+    if (inTstc) inTstc.value = '';
+    if (inDuong) inDuong.value = '';
+    if (inKtv) inKtv.value = '';
+    if (inBlock) inBlock.value = '';
+
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
+}
+
+function openAuEditModal(id) {
+    const record = currentAuData.find(r => r.id === id);
+    if (!record) return;
+
+    const modal = document.getElementById('au-record-modal');
+    const title = document.getElementById('au-modal-title');
+    const editId = document.getElementById('au-edit-id');
+    const inShd = document.getElementById('au-input-so-hop-dong');
+    const inTd = document.getElementById('au-input-tap-diem');
+    const inTstc = document.getElementById('au-input-tstc');
+    const inDuong = document.getElementById('au-input-duong');
+    const inKtv = document.getElementById('au-input-ktv');
+    const inBlock = document.getElementById('au-input-block');
+
+    if (title) title.innerHTML = `<i class="fa-solid fa-pen-to-square text-blue-600"></i> Chỉnh Sửa Bản Ghi AU`;
+    if (editId) editId.value = id;
+    if (inShd) inShd.value = record.so_hop_dong || '';
+    if (inTd) inTd.value = record.tap_diem || '';
+    if (inTstc) inTstc.value = record.tstc || '';
+    if (inDuong) inDuong.value = record.duong || '';
+    if (inKtv) inKtv.value = record.ktv_t10 || '';
+    if (inBlock) inBlock.value = record.block || '';
+
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+    }
+}
+
+function closeAuRecordModal() {
+    const modal = document.getElementById('au-record-modal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+async function handleAuRecordSubmit(e) {
+    e.preventDefault();
+    const editId = document.getElementById('au-edit-id')?.value;
+    const payload = {
+        so_hop_dong: document.getElementById('au-input-so-hop-dong')?.value || '',
+        tap_diem: document.getElementById('au-input-tap-diem')?.value || '',
+        tstc: document.getElementById('au-input-tstc')?.value || '',
+        duong: document.getElementById('au-input-duong')?.value || '',
+        ktv_t10: document.getElementById('au-input-ktv')?.value || '',
+        block: document.getElementById('au-input-block')?.value || '',
+    };
+
+    try {
+        let res;
+        if (editId) {
+            res = await fetch(`/api/au/record/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } else {
+            res = await fetch('/api/au/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+        const data = await res.json();
+        if (data.success) {
+            showToast(editId ? 'Cập nhật bản ghi thành công!' : 'Thêm bản ghi AU mới thành công!', 'success');
+            closeAuRecordModal();
+            loadAuStats();
+            loadAuFilters();
+            loadAuTable(currentAuPage);
+        } else {
+            showToast(data.error || 'Lỗi khi lưu bản ghi', 'error');
+        }
+    } catch (err) {
+        console.error('Error saving AU record:', err);
+        showToast('Lỗi kết nối khi lưu bản ghi', 'error');
+    }
+}
+
+// Xóa bản ghi AU (Bắt buộc mật khẩu: doitruongsg1)
+async function deleteAuRecord(id) {
+    const pwd = prompt('BẢO MẬT: Nhập mật khẩu xác nhận để xóa bản ghi:');
+    if (pwd === null) return;
+    if (!pwd.trim()) {
+        showToast('Vui lòng nhập mật khẩu xác nhận để xóa', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/au/record/${id}?password=${encodeURIComponent(pwd.trim())}`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Đã xóa bản ghi AU thành công!', 'success');
+            loadAuStats();
+            loadAuTable(currentAuPage);
+        } else {
+            showToast(data.error || 'Mật khẩu xác nhận không chính xác!', 'error');
+        }
+    } catch (err) {
+        console.error('Error deleting AU record:', err);
+        showToast('Lỗi kết nối khi xóa bản ghi', 'error');
+    }
+}
+
+// Xóa toàn bộ dữ liệu AU (Bắt buộc mật khẩu: doitruongsg1)
+async function confirmClearAllAu() {
+    const pwd = prompt('CẢNH BÁO NGUY HIỂM: Thao tác này sẽ XÓA SẠCH toàn bộ dữ liệu AU trong hệ thống!\nVui lòng nhập mật khẩu xác nhận:');
+    if (pwd === null) return;
+    if (!pwd.trim()) {
+        showToast('Vui lòng nhập mật khẩu xác nhận để tiếp tục', 'error');
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/au/clear', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd.trim() })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showToast('Đã xóa toàn bộ dữ liệu AU thành công!', 'success');
+            loadAuStats();
+            loadAuFilters();
+            loadAuTable(1);
+        } else {
+            showToast(data.error || 'Mật khẩu xác nhận không chính xác!', 'error');
+        }
+    } catch (err) {
+        console.error('Error clearing AU records:', err);
+        showToast('Lỗi kết nối khi xóa dữ liệu', 'error');
+    }
+}
+
+// Hàm sao chép clipboard tiện ích
+function copyToClipboard(text, label = 'Nội dung') {
+    if (!text) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast(`Đã sao chép ${label}: ${text}`, 'success');
+        }).catch(() => {
+            fallbackCopyText(text, label);
+        });
+    } else {
+        fallbackCopyText(text, label);
+    }
+}
+
+function fallbackCopyText(text, label) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        document.execCommand('copy');
+        showToast(`Đã sao chép ${label}: ${text}`, 'success');
+    } catch (err) {
+        showToast('Không thể sao chép tự động', 'error');
+    }
+    document.body.removeChild(textArea);
+}
+
 

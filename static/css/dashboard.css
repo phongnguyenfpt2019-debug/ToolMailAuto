@@ -73,6 +73,11 @@ body {
     color: #ffffff;
 }
 
+.nav-tab-link.active #badge-au-cnt {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
 /* ==========================================================================
    MUI DATE PRESET CHIPS & OUTLINED INPUTS
    ========================================================================== */
@@ -335,6 +340,10 @@ body {
 /* ==========================================================================
    MUI DIALOG & MODAL TABS
    ========================================================================== */
+.modal {
+    display: none;
+}
+
 .modal.show {
     display: flex !important;
 }

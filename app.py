@@ -23,6 +23,8 @@ import auth_service
 from config import DEFAULT_EMAIL, DEFAULT_IMAP_SERVER, DEFAULT_IMAP_PORT, SYNC_FOLDERS
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.jinja_env.auto_reload = True
 app.secret_key = os.environ.get('SECRET_KEY', 'fpt-sg01-cem-dashboard-secret-2026')
 app.permanent_session_lifetime = timedelta(days=7)
 database.init_db()
@@ -1178,6 +1180,446 @@ def nhansu_send_mail():
         return jsonify({"success": ok, "sent_to": recipients})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# -----------------------------------------------------------------
+# TRA CỨU AU: API ENDPOINTS
+# -----------------------------------------------------------------
+import unicodedata
+import re
+
+def _normalize_au_col(c):
+    c = str(c or '').strip().lower()
+    c = c.replace('đ', 'd').replace('Đ', 'd')
+    c = unicodedata.normalize('NFKD', c).encode('ASCII', 'ignore').decode('utf-8')
+    return re.sub(r'[^a-z0-9]', '', c)
+
+# Bảng từ khóa nhận diện cột AU (đã chuẩn hóa: chữ thường, không dấu, bỏ ký tự đặc biệt)
+_AU_ORDER = ['so_hop_dong', 'tap_diem', 'tstc', 'duong', 'ktv_t10', 'block']
+_AU_FIELD_KEYS = {
+    'so_hop_dong': ['sohopdong', 'hopdong', 'sohd', 'shd', 'hd', 'mahd', 'mahopdong', 'contract',
+                    'contractnumber', 'sohopong', 'hopong', 'mahopong', 'sehipong', 'soaohoipnoang'],
+    'tap_diem': ['tapdiem', 'matapdiem', 'tapiem', 'td', 'diem', 'tepiom'],
+    'tstc': ['tstc', 'matstc', 'ts'],
+    'duong': ['duong', 'tenduong', 'uong', 'tenuong', 'diachi', 'street', 'address', 'eng', 'ongng'],
+    'ktv_t10': ['ktvt10', 'ktv', 'nhanvien', 'technician'],
+    'block': ['block', 'khoi', 'quan'],
+}
+_AU_SUBSTR_KEYS = {
+    'so_hop_dong': ['hopdong', 'hopong', 'sohd', 'contract'],
+    'tap_diem': ['tapdiem', 'tapiem'],
+    'tstc': ['tstc'],
+    'duong': ['duong', 'diachi', 'street', 'address'],
+    'ktv_t10': ['ktv', 'nhanvien'],
+    'block': ['block'],
+}
+
+
+def _au_cell_str(v):
+    if v is None:
+        return ''
+    try:
+        if pd.isna(v):
+            return ''
+    except (TypeError, ValueError):
+        pass
+    if isinstance(v, float) and v.is_integer():
+        v = int(v)
+    s = str(v).strip()
+    return '' if s.lower() in ('nan', 'none', 'nat') else s
+
+
+def _au_map_columns(df):
+    """Chọn cột cho từng trường: ưu tiên khớp tên chính xác -> khớp một phần -> theo vị trí template.
+    Nếu nhiều cột cùng khớp, chọn cột có nhiều dữ liệu nhất (tránh cột trống ghi đè cột thật)."""
+    cols = list(df.columns)
+    norm = {c: _normalize_au_col(c) for c in cols}
+    fill = {c: sum(1 for v in df[c].tolist() if _au_cell_str(v)) for c in cols}
+    col_map, used = {}, set()
+
+    def pick(field, cands):
+        cands = [c for c in cands if c not in used and norm[c] not in ('id', 'stt', 'sothutu')]
+        if cands:
+            best = max(cands, key=lambda c: fill[c])
+            col_map[field] = best
+            used.add(best)
+
+    for field in _AU_ORDER:  # 1) khớp chính xác
+        pick(field, [c for c in cols if norm[c] in _AU_FIELD_KEYS[field]])
+    for field in _AU_ORDER:  # 2) khớp một phần
+        if field not in col_map:
+            pick(field, [c for c in cols if any(k in norm[c] for k in _AU_SUBSTR_KEYS[field])])
+
+    # 3) Theo thứ tự cột template nếu chưa tìm thấy hoặc cột tìm được không có dữ liệu
+    offset = 1 if cols and norm[cols[0]] in ('id', 'stt', 'sothutu') else 0
+    if len(cols) >= 5:
+        for i, field in enumerate(_AU_ORDER):
+            cur = col_map.get(field)
+            if cur is not None and fill[cur] > 0:
+                continue
+            pos = offset + i
+            if pos < len(cols) and cols[pos] not in used and fill[cols[pos]] > 0:
+                if cur is not None:
+                    used.discard(cur)
+                col_map[field] = cols[pos]
+                used.add(cols[pos])
+    return col_map
+
+
+def _au_read_dataframe(file, filename):
+    """Đọc file dạng chuỗi (giữ nguyên số 0 đầu của số HĐ) và tự dò dòng tiêu đề trong 10 dòng đầu."""
+    if filename.endswith(('.xlsx', '.xls')):
+        raw = pd.read_excel(file, header=None, dtype=str)
+    else:
+        content = file.read()
+        raw = None
+        for enc in ('utf-8-sig', 'utf-8', 'cp1258', 'latin-1'):
+            try:
+                raw = pd.read_csv(io.BytesIO(content), header=None, dtype=str, encoding=enc)
+                break
+            except (UnicodeDecodeError, pd.errors.ParserError):
+                continue
+        if raw is None:
+            raise ValueError('Không đọc được file CSV')
+    raw = raw.dropna(how='all').dropna(axis=1, how='all').reset_index(drop=True)
+    if raw.empty:
+        return raw
+
+    def score(row_vals):
+        names = [_normalize_au_col(v) for v in row_vals if _au_cell_str(v)]
+        hit = 0
+        for field in _AU_ORDER:
+            if any(n in _AU_FIELD_KEYS[field] or any(k in n for k in _AU_SUBSTR_KEYS[field]) for n in names):
+                hit += 1
+        return hit
+
+    header_idx = max(range(min(10, len(raw))), key=lambda i: score(raw.iloc[i].tolist()))
+    if score(raw.iloc[header_idx].tolist()) == 0:
+        header_idx = 0
+    headers, seen = [], {}
+    for j, v in enumerate(raw.iloc[header_idx].tolist()):
+        h = _au_cell_str(v) or f'Cot_{j + 1}'
+        if h in seen:
+            seen[h] += 1
+            h = f'{h}.{seen[h]}'
+        else:
+            seen[h] = 0
+        headers.append(h)
+    df = raw.iloc[header_idx + 1:].reset_index(drop=True)
+    df.columns = headers
+    return df
+
+@app.route('/api/au/stats')
+def api_au_stats():
+    stats = database.get_au_stats()
+    return jsonify({"success": True, "stats": stats})
+
+@app.route('/api/au')
+def api_au_list():
+    search = request.args.get('search', '').strip()
+    so_hop_dong = request.args.get('so_hop_dong', '').strip()
+    tap_diem = request.args.get('tap_diem', '').strip()
+    tstc = request.args.get('tstc', '').strip()
+    duong = request.args.get('duong', '').strip()
+    ktv = request.args.get('ktv', '').strip()
+    block = request.args.get('block', '').strip()
+    page = max(int(request.args.get('page', 1)), 1)
+    limit = min(max(int(request.args.get('limit', 30)), 1), 200)
+
+    result = database.get_au_records(
+        search=search,
+        so_hop_dong=so_hop_dong,
+        tap_diem=tap_diem,
+        tstc=tstc,
+        duong=duong,
+        ktv=ktv,
+        block=block,
+        page=page,
+        limit=limit
+    )
+    result["success"] = True
+    return jsonify(result)
+
+@app.route('/api/au/filters')
+def api_au_filters():
+    filters = database.get_au_filters()
+    return jsonify({"success": True, **filters})
+
+@app.route('/api/au/template')
+def api_au_template():
+    """Tạo và tải file mẫu Excel import AU chuẩn (Không có cột ID - ID là trường bảo mật hệ thống tự quản lý)"""
+    df = pd.DataFrame([
+        {
+            "Số hợp đồng": "SGN01-HD12345",
+            "Tập điểm": "TD-Q1-001",
+            "TSTC": "TSTC-8899",
+            "Đường": "Nguyễn Thị Minh Khai",
+            "KTV* T10": "Nguyễn Văn A",
+            "Block": "Block 1"
+        },
+        {
+            "Số hợp đồng": "SGN01-HD67890",
+            "Tập điểm": "TD-Q3-012",
+            "TSTC": "TSTC-3344",
+            "Đường": "Cách Mạng Tháng 8",
+            "KTV* T10": "Trần Văn B",
+            "Block": "Block 2"
+        },
+        {
+            "Số hợp đồng": "SGN01-HD54321",
+            "Tập điểm": "TD-Q10-008",
+            "TSTC": "TSTC-7711",
+            "Đường": "Lý Thường Kiệt",
+            "KTV* T10": "Lê Văn C",
+            "Block": "Block 3"
+        }
+    ])
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Mau_Import_AU')
+        ws = writer.sheets['Mau_Import_AU']
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+        header_fill = PatternFill(start_color="1E40AF", end_color="1E40AF", fill_type="solid")
+        header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+        thin_border = Border(
+            left=Side(style='thin', color='D4D4D8'),
+            right=Side(style='thin', color='D4D4D8'),
+            top=Side(style='thin', color='D4D4D8'),
+            bottom=Side(style='thin', color='D4D4D8')
+        )
+        for col_idx, col in enumerate(ws.iter_cols(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column), start=1):
+            cell_header = col[0]
+            cell_header.fill = header_fill
+            cell_header.font = header_font
+            cell_header.alignment = Alignment(horizontal="center", vertical="center")
+            col_letter = cell_header.column_letter
+            max_len = max(len(str(c.value or '')) for c in col)
+            ws.column_dimensions[col_letter].width = max(max_len + 4, 15)
+            for cell in col:
+                cell.border = thin_border
+                if cell.row > 1:
+                    cell.alignment = Alignment(vertical="center")
+
+    output.seek(0)
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="Template_Import_AU.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.route('/api/au/import', methods=['POST'])
+def api_au_import():
+    if 'file' not in request.files:
+        return jsonify({"success": False, "error": "Vui lòng chọn file Excel hoặc CSV"}), 400
+
+    file = request.files['file']
+    if not file.filename:
+        return jsonify({"success": False, "error": "Chưa chọn file để tải lên"}), 400
+
+    mode = request.form.get('mode', 'replace').strip()
+    filename = file.filename.lower()
+
+    try:
+        if not filename.endswith(('.xlsx', '.xls', '.csv')):
+            return jsonify({"success": False, "error": "Định dạng file không hỗ trợ. Vui lòng tải lên .xlsx, .xls hoặc .csv"}), 400
+
+        df = _au_read_dataframe(file, filename)
+        if df.empty:
+            return jsonify({"success": False, "error": "File không có dữ liệu"}), 400
+
+        col_map = _au_map_columns(df)
+        print(f"[AU Import] Cột trong file: {list(df.columns)} -> Ánh xạ: {col_map}")
+
+        records = []
+        for _, row in df.iterrows():
+            so_hop_dong = _au_cell_str(row[col_map['so_hop_dong']]) if 'so_hop_dong' in col_map else ""
+            tap_diem = _au_cell_str(row[col_map['tap_diem']]) if 'tap_diem' in col_map else ""
+            tstc = _au_cell_str(row[col_map['tstc']]) if 'tstc' in col_map else ""
+            duong = _au_cell_str(row[col_map['duong']]) if 'duong' in col_map else ""
+            ktv_t10 = _au_cell_str(row[col_map['ktv_t10']]) if 'ktv_t10' in col_map else ""
+            block = _au_cell_str(row[col_map['block']]) if 'block' in col_map else ""
+
+            # Bỏ qua dòng hoàn toàn rỗng
+            if not any([so_hop_dong, tap_diem, tstc, duong, ktv_t10, block]):
+                continue
+
+            records.append({
+                "so_hop_dong": so_hop_dong,
+                "tap_diem": tap_diem,
+                "tstc": tstc,
+                "duong": duong,
+                "ktv_t10": ktv_t10,
+                "block": block
+            })
+
+        if not records:
+            return jsonify({"success": False, "error": "Không tìm thấy dữ liệu hợp lệ trong file. Vui lòng kiểm tra lại tên cột theo mẫu."}), 400
+
+        result = database.import_au_records(records, mode=mode)
+        if result.get("success"):
+            labels = {'so_hop_dong': 'Số HĐ', 'tap_diem': 'Tập điểm', 'tstc': 'TSTC',
+                      'duong': 'Đường', 'ktv_t10': 'KTV', 'block': 'Block'}
+            map_txt = ', '.join(f"{labels[f]}←[{col_map[f]}]" if f in col_map else f"{labels[f]}←(không thấy)"
+                                for f in _AU_ORDER)
+            return jsonify({
+                "success": True,
+                "count": result.get("count", 0),
+                "max_id": result.get("max_id", 0),
+                "mapping": {f: str(col_map.get(f, '')) for f in _AU_ORDER},
+                "message": f"Import thành công {result.get('count', 0)} bản ghi. Cột: {map_txt}"
+            })
+        else:
+            return jsonify({"success": False, "error": result.get("error", "Lỗi import dữ liệu")}), 500
+
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Lỗi đọc file: {str(e)}"}), 500
+
+@app.route('/api/au/export/excel')
+def api_au_export_excel():
+    search = request.args.get('search', '').strip()
+    so_hop_dong = request.args.get('so_hop_dong', '').strip()
+    tap_diem = request.args.get('tap_diem', '').strip()
+    tstc = request.args.get('tstc', '').strip()
+    duong = request.args.get('duong', '').strip()
+    ktv = request.args.get('ktv', '').strip()
+    block = request.args.get('block', '').strip()
+
+    result = database.get_au_records(
+        search=search,
+        so_hop_dong=so_hop_dong,
+        tap_diem=tap_diem,
+        tstc=tstc,
+        duong=duong,
+        ktv=ktv,
+        block=block,
+        page=1,
+        limit=100000
+    )
+    records = result.get('records', [])
+
+    export_data = []
+    for r in records:
+        export_data.append({
+            "ID": r.get('id'),
+            "Số hợp đồng": r.get('so_hop_dong', ''),
+            "Tập điểm": r.get('tap_diem', ''),
+            "TSTC": r.get('tstc', ''),
+            "Đường": r.get('duong', ''),
+            "KTV* T10": r.get('ktv_t10', ''),
+            "Block": r.get('block', '')
+        })
+
+    df = pd.DataFrame(export_data) if export_data else pd.DataFrame(columns=["ID", "Số hợp đồng", "Tập điểm", "TSTC", "Đường", "KTV* T10", "Block"])
+
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Tra_Cuu_AU')
+        ws = writer.sheets['Tra_Cuu_AU']
+        for col in ws.columns:
+            max_len = max(len(str(c.value or '')) for c in col)
+            col_letter = col[0].column_letter
+            ws.column_dimensions[col_letter].width = min(max(max_len + 4, 12), 45)
+
+    output.seek(0)
+    filename = f"Tra_Cuu_AU_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+@app.route('/api/au/export/csv')
+def api_au_export_csv():
+    search = request.args.get('search', '').strip()
+    so_hop_dong = request.args.get('so_hop_dong', '').strip()
+    tap_diem = request.args.get('tap_diem', '').strip()
+    tstc = request.args.get('tstc', '').strip()
+    duong = request.args.get('duong', '').strip()
+    ktv = request.args.get('ktv', '').strip()
+    block = request.args.get('block', '').strip()
+
+    result = database.get_au_records(
+        search=search,
+        so_hop_dong=so_hop_dong,
+        tap_diem=tap_diem,
+        tstc=tstc,
+        duong=duong,
+        ktv=ktv,
+        block=block,
+        page=1,
+        limit=100000
+    )
+    records = result.get('records', [])
+
+    export_data = []
+    for r in records:
+        export_data.append({
+            "ID": r.get('id'),
+            "Số hợp đồng": r.get('so_hop_dong', ''),
+            "Tập điểm": r.get('tap_diem', ''),
+            "TSTC": r.get('tstc', ''),
+            "Đường": r.get('duong', ''),
+            "KTV* T10": r.get('ktv_t10', ''),
+            "Block": r.get('block', '')
+        })
+
+    df = pd.DataFrame(export_data) if export_data else pd.DataFrame(columns=["ID", "Số hợp đồng", "Tập điểm", "TSTC", "Đường", "KTV* T10", "Block"])
+
+    output = io.StringIO()
+    df.to_csv(output, index=False, encoding='utf-8-sig')
+    csv_bytes = io.BytesIO(output.getvalue().encode('utf-8-sig'))
+    filename = f"Tra_Cuu_AU_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    return send_file(
+        csv_bytes,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="text/csv"
+    )
+
+@app.route('/api/au/record', methods=['POST'])
+def api_au_add():
+    data = request.get_json() or {}
+    res = database.add_au_record(data)
+    if res.get('success'):
+        return jsonify(res)
+    return jsonify(res), 400
+
+@app.route('/api/au/record/<int:au_id>', methods=['PUT'])
+def api_au_update(au_id):
+    data = request.get_json() or {}
+    res = database.update_au_record(au_id, data)
+    if res.get('success'):
+        return jsonify(res)
+    return jsonify(res), 400
+
+AU_DELETE_PASSWORD = os.getenv("AU_DELETE_PASSWORD", "doitruongsg1")
+
+@app.route('/api/au/record/<int:au_id>', methods=['DELETE', 'POST'])
+def api_au_delete(au_id):
+    req_pass = request.args.get('password', '')
+    if not req_pass and request.is_json:
+        req_pass = (request.get_json() or {}).get('password', '')
+    if req_pass != AU_DELETE_PASSWORD:
+        return jsonify({"success": False, "error": "Mật khẩu xác nhận xóa không đúng! Vui lòng nhập đúng mật khẩu: doitruongsg1"}), 403
+
+    res = database.delete_au_record(au_id)
+    if res.get('success'):
+        return jsonify(res)
+    return jsonify(res), 400
+
+@app.route('/api/au/clear', methods=['POST'])
+def api_au_clear():
+    data = request.get_json() or {}
+    req_pass = data.get('password') or request.args.get('password', '')
+    if req_pass != AU_DELETE_PASSWORD:
+        return jsonify({"success": False, "error": "Mật khẩu xác nhận xóa không đúng! Vui lòng nhập đúng mật khẩu: doitruongsg1"}), 403
+
+    res = database.clear_all_au_records()
+    if res.get('success'):
+        return jsonify({"success": True, "message": "Đã xóa toàn bộ dữ liệu AU thành công"})
+    return jsonify(res), 400
 
 
 if __name__ == '__main__':
