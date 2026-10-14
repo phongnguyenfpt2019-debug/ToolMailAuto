@@ -1870,26 +1870,32 @@ let auSearchDebounceTimer = null;
 let currentAuData = [];
 let selectedAuFile = null;
 
-// Tải số liệu thống kê AU
+// Cập nhật các card thống kê KPI AU theo đúng bộ lọc đang chọn
+function updateAuKpiCards(s) {
+    if (!s) return;
+    const elTotal = document.getElementById('kpi-au-total');
+    const elContracts = document.getElementById('kpi-au-contracts');
+    const elTapDiem = document.getElementById('kpi-au-tap-diem');
+    const elTstc = document.getElementById('kpi-au-tstc');
+    const elBlocks = document.getElementById('kpi-au-blocks');
+    const badgeCnt = document.getElementById('badge-au-cnt');
+
+    if (elTotal) elTotal.textContent = Number(s.total || 0).toLocaleString();
+    if (elContracts) elContracts.textContent = Number(s.contracts || 0).toLocaleString();
+    if (elTapDiem) elTapDiem.textContent = Number(s.tap_diems || 0).toLocaleString();
+    if (elTstc) elTstc.textContent = Number(s.tstcs || 0).toLocaleString();
+    if (elBlocks) elBlocks.textContent = Number(s.blocks || 0).toLocaleString();
+    if (badgeCnt) badgeCnt.textContent = Number(s.total || 0).toLocaleString();
+}
+
+// Tải số liệu thống kê AU (chạy theo bộ lọc)
 async function loadAuStats() {
     try {
-        const res = await fetch('/api/au/stats');
+        const params = getAuQueryParams(1);
+        const res = await fetch(`/api/au/stats?${params.toString()}`);
         const data = await res.json();
         if (data.success && data.stats) {
-            const s = data.stats;
-            const elTotal = document.getElementById('kpi-au-total');
-            const elContracts = document.getElementById('kpi-au-contracts');
-            const elTapDiem = document.getElementById('kpi-au-tap-diem');
-            const elTstc = document.getElementById('kpi-au-tstc');
-            const elBlocks = document.getElementById('kpi-au-blocks');
-            const badgeCnt = document.getElementById('badge-au-cnt');
-
-            if (elTotal) elTotal.textContent = Number(s.total || 0).toLocaleString();
-            if (elContracts) elContracts.textContent = Number(s.contracts || 0).toLocaleString();
-            if (elTapDiem) elTapDiem.textContent = Number(s.tap_diems || 0).toLocaleString();
-            if (elTstc) elTstc.textContent = Number(s.tstcs || 0).toLocaleString();
-            if (elBlocks) elBlocks.textContent = Number(s.blocks || 0).toLocaleString();
-            if (badgeCnt) badgeCnt.textContent = Number(s.total || 0).toLocaleString();
+            updateAuKpiCards(data.stats);
         }
     } catch (e) {
         console.error('Lỗi tải thống kê AU:', e);
@@ -1982,6 +1988,11 @@ async function loadAuTable(page = 1) {
         // Cập nhật số lượng
         const tableCnt = document.getElementById('table-au-count');
         if (tableCnt) tableCnt.textContent = `${Number(data.total || 0).toLocaleString()} bản ghi`;
+
+        // Cập nhật ngay các card KPI theo đúng bộ lọc
+        if (data.stats) {
+            updateAuKpiCards(data.stats);
+        }
 
         currentAuData = data.records || [];
         renderAuTable(data);

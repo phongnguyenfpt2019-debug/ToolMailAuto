@@ -580,11 +580,40 @@ def set_setting(key, value):
 import time
 
 
-def get_au_stats():
+def get_au_stats(search="", so_hop_dong="", tap_diem="", tstc="", duong="", ktv="", block=""):
     conn = get_connection()
     try:
         cur = conn.cursor()
-        cur.execute("""
+        conditions = []
+        params = []
+
+        if search:
+            kw = f"%{search.strip()}%"
+            conditions.append("(so_hop_dong ILIKE ? OR tap_diem ILIKE ? OR tstc ILIKE ? OR duong ILIKE ? OR ktv_t10 ILIKE ?)")
+            params.extend([kw, kw, kw, kw, kw])
+
+        if so_hop_dong:
+            conditions.append("so_hop_dong ILIKE ?")
+            params.append(f"%{so_hop_dong.strip()}%")
+        if tap_diem:
+            conditions.append("tap_diem ILIKE ?")
+            params.append(f"%{tap_diem.strip()}%")
+        if tstc:
+            conditions.append("tstc ILIKE ?")
+            params.append(f"%{tstc.strip()}%")
+        if duong:
+            conditions.append("duong ILIKE ?")
+            params.append(f"%{duong.strip()}%")
+        if ktv:
+            conditions.append("ktv_t10 ILIKE ?")
+            params.append(f"%{ktv.strip()}%")
+        if block:
+            conditions.append("block ILIKE ?")
+            params.append(f"%{block.strip()}%")
+
+        where_sql = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+        cur.execute(f"""
             SELECT 
                 COUNT(*) AS total,
                 COUNT(DISTINCT NULLIF(so_hop_dong, '')) AS contracts,
@@ -592,7 +621,8 @@ def get_au_stats():
                 COUNT(DISTINCT NULLIF(tstc, '')) AS tstcs,
                 COUNT(DISTINCT NULLIF(block, '')) AS blocks
             FROM au_records
-        """)
+            {where_sql}
+        """, params)
         row = cur.fetchone()
         return {
             "total": row['total'] if row else 0,
@@ -659,10 +689,26 @@ def get_au_records(search="", so_hop_dong="", tap_diem="", tstc="", duong="", kt
 
         where_sql = "WHERE " + " AND ".join(conditions) if conditions else ""
 
-        # Tổng số kết quả phù hợp
-        cur.execute(f"SELECT COUNT(*) FROM au_records {where_sql}", params)
-        count_row = cur.fetchone()
-        total = count_row[0] if count_row else 0
+        # Thống kê tổng quan và số lượng theo đúng bộ lọc
+        cur.execute(f"""
+            SELECT 
+                COUNT(*) AS total,
+                COUNT(DISTINCT NULLIF(so_hop_dong, '')) AS contracts,
+                COUNT(DISTINCT NULLIF(tap_diem, '')) AS tap_diems,
+                COUNT(DISTINCT NULLIF(tstc, '')) AS tstcs,
+                COUNT(DISTINCT NULLIF(block, '')) AS blocks
+            FROM au_records
+            {where_sql}
+        """, params)
+        stat_row = cur.fetchone()
+        total = stat_row['total'] if stat_row else 0
+        stats = {
+            "total": total,
+            "contracts": stat_row['contracts'] if stat_row else 0,
+            "tap_diems": stat_row['tap_diems'] if stat_row else 0,
+            "tstcs": stat_row['tstcs'] if stat_row else 0,
+            "blocks": stat_row['blocks'] if stat_row else 0,
+        }
 
         # Lấy dữ liệu phân trang
         offset = max(0, (page - 1) * limit)
@@ -681,6 +727,7 @@ def get_au_records(search="", so_hop_dong="", tap_diem="", tstc="", duong="", kt
         return {
             "records": rows,
             "total": total,
+            "stats": stats,
             "page": page,
             "limit": limit,
             "total_pages": total_pages,
@@ -688,7 +735,7 @@ def get_au_records(search="", so_hop_dong="", tap_diem="", tstc="", duong="", kt
         }
     except Exception as e:
         print(f"Error in get_au_records: {e}")
-        return {"records": [], "total": 0, "page": page, "limit": limit, "total_pages": 0, "query_time_ms": 0, "error": str(e)}
+        return {"records": [], "total": 0, "stats": {"total": 0, "contracts": 0, "tap_diems": 0, "tstcs": 0, "blocks": 0}, "page": page, "limit": limit, "total_pages": 0, "query_time_ms": 0, "error": str(e)}
     finally:
         conn.close()
 

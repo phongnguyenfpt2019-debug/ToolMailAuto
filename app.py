@@ -1311,7 +1311,23 @@ def _au_read_dataframe(file, filename):
 
 @app.route('/api/au/stats')
 def api_au_stats():
-    stats = database.get_au_stats()
+    search = request.args.get('search', '').strip()
+    so_hop_dong = request.args.get('so_hop_dong', '').strip()
+    tap_diem = request.args.get('tap_diem', '').strip()
+    tstc = request.args.get('tstc', '').strip()
+    duong = request.args.get('duong', '').strip()
+    ktv = request.args.get('ktv', '').strip()
+    block = request.args.get('block', '').strip()
+
+    stats = database.get_au_stats(
+        search=search,
+        so_hop_dong=so_hop_dong,
+        tap_diem=tap_diem,
+        tstc=tstc,
+        duong=duong,
+        ktv=ktv,
+        block=block
+    )
     return jsonify({"success": True, "stats": stats})
 
 @app.route('/api/au')
